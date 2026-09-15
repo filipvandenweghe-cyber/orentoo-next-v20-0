@@ -4,6 +4,7 @@ import BarcodePickingModel from "@stock_barcode/models/barcode_picking_model";
 import { patch } from "@web/core/utils/patch";
 import { _t } from "@web/core/l10n/translation";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { checkAndWarnRepair } from "@rental_scanning/js/repair_warning";
 
 /**
  * Route a scanned *source* package (a package that has contents) through the
@@ -24,6 +25,14 @@ patch(BarcodePickingModel.prototype, {
      */
     async _processBarcode(barcode) {
         if (this.resModel === "stock.picking") {
+            // Repair warning for ANY serial scan (PPB flow + native serial
+            // entry).  Non-blocking: the operator may proceed, which is
+            // audited; cancelling aborts this scan.  Non-serial scans return
+            // "no-repair" instantly.
+            const verdict = await checkAndWarnRepair(this, barcode);
+            if (verdict === "cancel") {
+                return;
+            }
             let data = null;
             try {
                 const filters = {

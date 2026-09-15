@@ -1,6 +1,6 @@
 {
     'name': 'Rental Serial Log',
-    'version': '19.0.1.0.9',
+    'version': '19.0.1.0.10',
     'summary': 'Per-serial rental traceability: delivered / returned / repaired',
     'description': (
         'A persisted usage log per serial-tracked lot.  Records, at rental '
@@ -11,7 +11,12 @@
         'Also enforces instance-wide uniqueness of serial numbers for '
         'serial-tracked products (normalized, case-sensitive), with a '
         'cross-type block so a lot/batch cannot reuse a serial string.  See '
-        'docs/serial_uniqueness_requirements.'
+        'docs/serial_uniqueness_requirements.\n\n'
+        'Rental returns accept only serials that were delivered on the order '
+        'and never create a new serial (overridable returnable-serial '
+        'resolver for later phases); plus an RPC serial repair-status check '
+        'and a repair-override audit event backing the scan warning.  See '
+        'docs/rental_return_serial_requirements.'
     ),
     'author': 'Pro-Designed.com',
     'website': 'https://www.pro-designed.com',

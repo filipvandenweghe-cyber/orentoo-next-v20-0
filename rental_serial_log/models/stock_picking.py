@@ -1,10 +1,15 @@
-from odoo import models
+from odoo import _, models
+from odoo.exceptions import UserError
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
     def button_validate(self):
+        # Enforce the rental-return serial rule BEFORE validation, so no new
+        # lot is ever created and only returnable serials are accepted.  The
+        # sale.order.line constraint remains the flow-agnostic backstop.
+        self._rsl_check_return_serials()
         res = super().button_validate()
         if self.env.context.get('skip_rental_serial_log'):
             return res
@@ -14,6 +19,75 @@ class StockPicking(models.Model):
             if picking.state == 'done':
                 picking._rental_serial_log_record()
         return res
+
+    # ── rental-return serial validation (H2) ─────────────────────────────────
+
+    def _rsl_is_rental_return(self):
+        """True for the customer-facing return leg (out of the at-customer
+        rental location) of a rental order."""
+        self.ensure_one()
+        order = self.sale_id
+        if not order or not getattr(order, 'is_rental_order', False):
+            return False
+        rloc = self.company_id.rental_loc_id
+        if not rloc:
+            return False
+        return any(
+            m.location_id == rloc for m in self.move_ids
+            if m.sale_line_id and m.sale_line_id.is_rental)
+
+    def _rsl_resolve_serial(self, name):
+        """Resolve an existing serial by its normalized name (P1 guarantees
+        serial names are unique instance-wide)."""
+        name = (name or '').strip()
+        if not name:
+            return self.env['stock.lot']
+        return self.env['stock.lot'].search(
+            [('serial_unique_key', '=', name)], limit=1)
+
+    def _rsl_check_return_serials(self):
+        """Reject a rental return that would create a new serial or return a
+        serial that was not delivered on the order (``_rsl_returnable_lot_ids``)."""
+        if self.env.context.get('skip_rental_serial_log'):
+            return
+        for picking in self:
+            if not picking._rsl_is_rental_return():
+                continue
+            rloc = picking.company_id.rental_loc_id
+            not_existing, not_returnable = [], []
+            for line in picking.move_line_ids:
+                sol = line.move_id.sale_line_id
+                if not sol or not sol.is_rental:
+                    continue
+                if line.product_id.tracking != 'serial' or line.quantity <= 0:
+                    continue
+                # Only the leg leaving the at-customer rental location.
+                if line.location_id != rloc:
+                    continue
+                lot = line.lot_id
+                if not lot:
+                    name = (line.lot_name or '').strip()
+                    if not name:
+                        continue
+                    lot = picking._rsl_resolve_serial(name)
+                    if not lot:
+                        not_existing.append(name)  # would create → forbidden
+                        continue
+                if lot not in sol._rsl_returnable_lot_ids():
+                    not_returnable.append(lot.name)
+            if not_existing or not_returnable:
+                parts = []
+                if not_existing:
+                    parts.append(_(
+                        "Unknown serial number(s) — a return may not create a "
+                        "new serial: %(sns)s", sns=", ".join(not_existing)))
+                if not_returnable:
+                    parts.append(_(
+                        "Serial number(s) not delivered on this rental: "
+                        "%(sns)s", sns=", ".join(not_returnable)))
+                raise UserError("\n".join(parts))
+
+    # ── rental serial logging (delivered / returned) ─────────────────────────
 
     def _rental_serial_log_record(self):
         """Log serial delivered/returned events for a rental transfer.

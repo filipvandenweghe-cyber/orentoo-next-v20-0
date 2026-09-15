@@ -1,15 +1,17 @@
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 
 class RentalSerialLog(models.Model):
     """One entry per serial event in the rental cycle.
 
     Events:
-      * delivered    — serial went out on a rental (client, order, and the
-                       package it was in + a contents snapshot).
-      * returned     — serial came back.
-      * repair_start — serial entered Repair.
-      * repair_done  — serial left Repair.
+      * delivered       — serial went out on a rental (client, order, and the
+                          package it was in + a contents snapshot).
+      * returned        — serial came back.
+      * repair_start    — serial entered Repair.
+      * repair_done     — serial left Repair.
+      * repair_override — an operator proceeded with a serial scan despite an
+                          active repair (audit of the non-blocking warning).
     """
 
     _name = 'rental.serial.log'
@@ -27,6 +29,7 @@ class RentalSerialLog(models.Model):
         ('returned', 'Returned'),
         ('repair_start', 'Repair started'),
         ('repair_done', 'Repair done'),
+        ('repair_override', 'Repair override'),
     ], string='Event', required=True, index=True)
     date = fields.Datetime(string='Date', required=True,
                            default=fields.Datetime.now, index=True)
@@ -91,3 +94,25 @@ class RentalSerialLog(models.Model):
         if self.sudo().search_count(domain):
             return self.browse()
         return self.sudo().create(vals)
+
+    @api.model
+    def rsl_log_repair_override(self, serial_name, picking_id=False,
+                               repair_id=False):
+        """RPC-callable audit entry: an operator proceeded with a serial scan
+        despite an active repair.  Resolves the serial by its unique name and
+        records one (idempotent) ``repair_override`` event per picking."""
+        name = (serial_name or '').strip()
+        if not name:
+            return False
+        lot = self.env['stock.lot'].search(
+            [('serial_unique_key', '=', name)], limit=1)
+        if not lot:
+            return False
+        rec = self._rsl_log({
+            'lot_id': lot.id,
+            'event_type': 'repair_override',
+            'picking_id': picking_id or False,
+            'repair_order_id': repair_id or False,
+            'note': _("Operator proceeded despite an active repair."),
+        })
+        return bool(rec)

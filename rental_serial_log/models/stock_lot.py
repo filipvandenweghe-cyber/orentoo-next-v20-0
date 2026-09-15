@@ -256,3 +256,48 @@ class StockLot(models.Model):
              LIMIT 1
         """, (key, exclude_id or 0))
         return bool(self.env.cr.fetchone())
+
+    # ── active-repair detection (for the serial-scan warning) ────────────────
+
+    # A serial is considered tied up when it has a repair that is committed
+    # but not yet finished.  We read the repair state live rather than caching
+    # a flag, so there is a single source of truth.
+    _RSL_OPEN_REPAIR_STATES = ('confirmed', 'under_repair')
+
+    def _rsl_open_repairs(self):
+        """Open repair orders for these serial lots (empty if repair absent)."""
+        if 'repair.order' not in self.env:
+            return self.browse()  # placeholder; repair is a hard dep in practice
+        return self.env['repair.order'].sudo().search([
+            ('lot_id', 'in', self.ids),
+            ('state', 'in', self._RSL_OPEN_REPAIR_STATES),
+        ])
+
+    @api.model
+    def rsl_repair_warning(self, serial_name):
+        """RPC-callable repair check for a scanned serial.
+
+        Returns ``{'has_repair': bool, 'repair_id', 'reference', 'state',
+        'message'}``.  A non-serial / unknown / clean serial returns
+        ``{'has_repair': False}``.  Never raises — the warning must not be able
+        to break scanning.
+        """
+        name = _normalize_serial(serial_name)
+        if not name or 'repair.order' not in self.env:
+            return {'has_repair': False}
+        lot = self.search([('serial_unique_key', '=', name)], limit=1)
+        if not lot:
+            return {'has_repair': False}
+        repair = lot._rsl_open_repairs()[:1]
+        if not repair:
+            return {'has_repair': False}
+        return {
+            'has_repair': True,
+            'repair_id': repair.id,
+            'reference': repair.name,
+            'state': repair.state,
+            'message': _(
+                "Serial %(sn)s is linked to an active repair (%(ref)s — "
+                "%(state)s). Proceeding will be logged.",
+                sn=lot.name, ref=repair.name, state=repair.state),
+        }
