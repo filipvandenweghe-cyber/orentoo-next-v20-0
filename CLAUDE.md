@@ -44,8 +44,9 @@ full rationale per feature. Read this first.
 - **sale_flow** — commercial/logistic flow tracking (`sale.flow.line`) + **return
   (receipt) demand reconciliation**. Hooks every `stock.move._action_done`.
 - **rental_scanning** — barcode prepared-package / set-barcode picking (backend + barcode app).
+  Also shows the reusable **Repair warning modal** on serial scans (depends on `rental_serial_log`).
 - **rental_serial_log** — per-serial rental history (delivered/returned/repair) tab on the lot form.
-  Also enforces **instance-wide serial uniqueness** (see below).
+  Also enforces **instance-wide serial uniqueness** and **rental-return serial control** (see below).
 
 ## Key design decisions (do not regress)
 ### Availability (rental_set) — "Option A"
@@ -94,9 +95,27 @@ full rationale per feature. Read this first.
   notification via `stock.lot._serial_duplicate_lot_ids()`; changes no data.
 - Docs: `docs/serial_uniqueness_requirements.md`.
 
+### Rental return serial control + repair scan warning (rental_serial_log / rental_scanning)
+- Returns accept **only serials delivered on the order** and **never create a new serial**.
+  Both hooks defer to one override point `sale.order.line._rsl_returnable_lot_ids()`
+  (**P1 = `pickedup_lot_ids`**; **P3** will widen to "all serials at the client" —
+  hooks/modal/tests untouched). Invariants always: serial must already exist and be returnable.
+  - **H1** `sale.order.line` `@api.constrains('returned_lot_ids')` = flow-agnostic backstop
+    (picking `_action_done`, wizard, import, manual) — same transaction, so a bad return rolls back.
+  - **H2** `stock.picking.button_validate` pre-check (`_rsl_check_return_serials`) on the leg
+    leaving `rental_loc`: rejects unknown `lot_name` (resolved via `serial_unique_key`) and
+    non-returnable lots *before* super → prevents server-side lot creation + friendly message.
+- **Repair scan warning** (non-blocking): `stock.lot.rsl_repair_warning(serial)` reports an
+  **active** repair (`state in ('confirmed','under_repair')`, read live — no duplicated flag);
+  the reusable JS modal (`rental_scanning/.../repair_warning.js`, wired into
+  `_processBarcode` → fires on PPB **and** native serial scans) asks **Proceed Anyway**/Cancel;
+  proceeding logs a `repair_override` event via `rental.serial.log.rsl_log_repair_override(...)`.
+- Docs: `docs/rental_return_serial_requirements.md`.
+
 ## Requirement docs
 - `docs/rental_availability_requirements.{md,docx}`
 - `docs/sale_flow_return_demand_requirements.{md,docx}`
 - `docs/rental_serial_log_requirements.{md,docx}`
 - `docs/rental_scanning_requirements.{md,docx}`
 - `docs/serial_uniqueness_requirements.md`
+- `docs/rental_return_serial_requirements.md`
