@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Administrator-facing audit: lists the serial numbers that violate the
+         instance-wide uniqueness rule (serial-vs-serial and cross-type), so an
+         admin can inspect and fix them.  Shows a success notification when the
+         database is clean. -->
+    <record id="action_serial_duplicate_audit" model="ir.actions.server">
+        <field name="name">Serial Number Duplicate Audit</field>
+        <field name="model_id" ref="stock.model_stock_lot"/>
+        <field name="state">code</field>
+        <field name="code">
+ids = env['stock.lot']._serial_duplicate_lot_ids()
+if ids:
+    action = {
+        'type': 'ir.actions.act_window',
+        'name': env._('Duplicate Serial Numbers'),
+        'res_model': 'stock.lot',
+        'view_mode': 'list,form',
+        'domain': [('id', 'in', ids)],
+        'context': {'create': False},
+    }
+else:
+    action = {
+        'type': 'ir.actions.client',
+        'tag': 'display_notification',
+        'params': {
+            'title': env._('Serial Number Duplicate Audit'),
+            'message': env._('No duplicate serial numbers found.'),
+            'type': 'success',
+            'sticky': False,
+        },
+    }
+        </field>
+    </record>
+
+    <menuitem id="menu_serial_duplicate_audit"
+              name="Serial Number Duplicate Audit"
+              parent="stock.menu_warehouse_report"
+              action="action_serial_duplicate_audit"
+              groups="stock.group_stock_manager"
+              sequence="250"/>
+</odoo>
