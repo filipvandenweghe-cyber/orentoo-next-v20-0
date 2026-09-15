@@ -303,6 +303,108 @@ class TestSaleFlow(TransactionCase):
         expected = svc._get_expected_return_qty(fl)
         self.assertEqual(expected, 2, "2 units are missing")
 
+    def test_08b_lost_broken_wizard_action_has_views(self):
+        """Regression: the lost/broken wizard action must carry an explicit
+        ``views`` list.  The Barcode app validates via its own ``doAction``
+        whose ``_preprocessAction`` maps over ``action.views`` — a bare
+        ``view_mode`` action crashed it (TypeError reading 'map')."""
+        order = self._create_rental_order([
+            {'product': self.rental_product, 'qty': 4, 'price': 10.0},
+        ])
+        picking = order.picking_ids[:1]
+        self.assertTrue(picking)
+        fl = order.flow_line_ids.filtered(
+            lambda f: f.product_id == self.rental_product)[:1]
+        fl.write({'is_rental': True, 'delivered_qty': 4, 'returned_qty': 2})
+        action = self.env['sale.flow.return.service']._open_lost_broken_wizard(
+            picking, [{'flow_line': fl, 'missing_qty': 2}])
+        self.assertEqual(action['type'], 'ir.actions.act_window')
+        self.assertTrue(
+            isinstance(action.get('views'), list) and action['views'],
+            "wizard action must define an explicit views list")
+        self.assertEqual(action['views'][0][1], 'form')
+
+    def test_08c_serial_aware_lost_broken_scrap(self):
+        """Lost/broken scrap must relieve the exact NOT-returned serial, not an
+        arbitrary unit of the product (regression for PRINT006 staying on hand)."""
+        company = self.env.company
+        if not company.rental_loc_id:
+            company.sudo()._create_rental_location()
+        rloc = company.rental_loc_id
+        Quant = self.env['stock.quant']
+        sp = self.env['product.product'].create({
+            'name': 'SF Serial', 'type': 'consu', 'is_storable': True,
+            'tracking': 'serial', 'rent_ok': True})
+        l1 = self.env['stock.lot'].create({'name': 'SF-L1', 'product_id': sp.id})
+        l2 = self.env['stock.lot'].create({'name': 'SF-L2', 'product_id': sp.id})
+        # Both serials are currently at the client (rental location).
+        Quant._update_available_quantity(sp, rloc, 1, lot_id=l1)
+        Quant._update_available_quantity(sp, rloc, 1, lot_id=l2)
+        self.env.flush_all()
+        now = fields.Datetime.now()
+        order = self.env['sale.order'].with_context(in_rental_app=True).create({
+            'partner_id': self.partner.id,
+            'is_rental_order': True,
+            'rental_start_date': now,
+            'rental_return_date': now + timedelta(days=1),
+            'order_line': [(0, 0, {'product_id': sp.id, 'product_uom_qty': 2})],
+        })
+        sol = order.order_line
+        sol.pickedup_lot_ids = [(6, 0, [l1.id, l2.id])]
+        sol.returned_lot_ids = [(6, 0, [l1.id])]  # L2 is the missing one
+        # Classify the 1 missing unit as lost/broken → scrap it.
+        self.env['sale.flow.lost.broken.service']._scrap_from_rental(
+            order, sp, 1, sol)
+        self.env.flush_all()
+        # The exact missing serial (L2) must be gone from the rental location;
+        # the returned serial (L1) must be untouched.
+        self.assertEqual(
+            Quant._get_available_quantity(sp, rloc, lot_id=l2), 0.0,
+            "the not-returned serial must be scrapped off the rental location")
+        self.assertEqual(
+            Quant._get_available_quantity(sp, rloc, lot_id=l1), 1.0,
+            "the returned serial must stay on hand")
+
+    def test_08d_cancel_return_triggers_lost_broken(self):
+        """Cancelling a rental return (items won't come back) must open the
+        lost/broken wizard so the missing units are invoiced."""
+        company = self.env.company
+        if not company.rental_loc_id:
+            company.sudo()._create_rental_location()
+        rloc = company.rental_loc_id
+        wh = self.env['stock.warehouse'].search(
+            [('company_id', '=', company.id)], limit=1)
+        order = self._create_rental_order([
+            {'product': self.rental_product, 'qty': 1, 'price': 10.0},
+        ])
+        fl = order.flow_line_ids.filtered(
+            lambda f: f.product_id == self.rental_product)[:1]
+        fl.write({'is_rental': True, 'delivered_qty': 1, 'returned_qty': 0})
+        sol = order.order_line.filtered(
+            lambda l: l.product_id == self.rental_product)[:1]
+        # A prior outgoing picking to serve as the return's origin.
+        out = self.env['stock.picking'].create({
+            'picking_type_id': wh.out_type_id.id,
+            'location_id': wh.lot_stock_id.id, 'location_dest_id': rloc.id,
+        })
+        ret = self.env['stock.picking'].create({
+            'picking_type_id': wh.in_type_id.id,
+            'location_id': rloc.id, 'location_dest_id': wh.lot_stock_id.id,
+            'return_id': out.id,
+        })
+        self.env['stock.move'].create({
+            'product_id': self.rental_product.id, 'product_uom_qty': 1,
+            'product_uom': self.rental_product.uom_id.id, 'picking_id': ret.id,
+            'location_id': rloc.id, 'location_dest_id': wh.lot_stock_id.id,
+            'sale_line_id': sol.id,
+        })
+        action = ret.action_cancel()
+        self.assertTrue(
+            isinstance(action, dict)
+            and action.get('res_model') == 'sale.flow.lost.broken.wizard',
+            "cancelling a return with missing items must open the "
+            "lost/broken wizard")
+
     # ── Test 9: Lost/broken wizard creates charge-only line ──────────
 
     def test_09_lost_broken_wizard_creates_charge(self):
