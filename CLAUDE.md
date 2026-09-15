@@ -45,6 +45,7 @@ full rationale per feature. Read this first.
   (receipt) demand reconciliation**. Hooks every `stock.move._action_done`.
 - **rental_scanning** — barcode prepared-package / set-barcode picking (backend + barcode app).
 - **rental_serial_log** — per-serial rental history (delivered/returned/repair) tab on the lot form.
+  Also enforces **instance-wide serial uniqueness** (see below).
 
 ## Key design decisions (do not regress)
 ### Availability (rental_set) — "Option A"
@@ -72,8 +73,30 @@ full rationale per feature. Read this first.
 - Root cause fixed: the old code summed pending outbound moves across every multi-step leg
   (4→8→12). Docs: `docs/sale_flow_return_demand_requirements.{md,docx}`.
 
+### Serial uniqueness (rental_serial_log)
+- `stock.lot.serial_unique_key` = normalized (`.strip()`, **case-sensitive**) serial name,
+  populated **only** for `tracking='serial'` (NULL otherwise → lots/batches untouched).
+- Enforced by a **partial unique DB index** `WHERE serial_unique_key IS NOT NULL` (built in
+  `init()`; race-safe, cross-company) + an `@api.constrains` (raw-SQL lookups → friendly
+  message, no ORM flush) that also implements **Option B**: a batch may not reuse a serial
+  string and vice-versa. Batch-vs-batch duplicates stay allowed.
+- Install/upgrade **hard-stops** on legacy duplicates (pre-migration + `post_init_hook` +
+  `init()` guard), reporting conflicts and **changing no data**.
+- **Physical on-hand uniqueness** (`stock.quant._check_serial_single_on_hand`): a
+  serial-tracked lot may be on hand in **at most one** internal/transit location
+  **instance-wide (all companies)**. Standard Odoo only *warns* here (Inventory
+  Adjustments) and its `check_quantity` groups per location tree, so the same serial
+  could be counted into two warehouses/companies. Customer locations are excluded so
+  the deliver-before-receipt transient stays allowed; moving the single unit (src→0,
+  dest→1) is fine.
+- **Admin audit**: Inventory → Reporting → *Serial Number Duplicate Audit*
+  (`ir.actions.server`, stock managers) → lists the offending lots or a "clean"
+  notification via `stock.lot._serial_duplicate_lot_ids()`; changes no data.
+- Docs: `docs/serial_uniqueness_requirements.md`.
+
 ## Requirement docs
 - `docs/rental_availability_requirements.{md,docx}`
 - `docs/sale_flow_return_demand_requirements.{md,docx}`
 - `docs/rental_serial_log_requirements.{md,docx}`
 - `docs/rental_scanning_requirements.{md,docx}`
+- `docs/serial_uniqueness_requirements.md`
