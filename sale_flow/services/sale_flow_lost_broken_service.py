@@ -91,6 +91,11 @@ class SaleFlowLostBrokenService(models.AbstractModel):
         so rental availability attributes it to the right warehouse and
         releases the unit (see rental_set ``_rental_at_customer_qty`` and
         ``_rental_effective_reserved_qty``).
+
+        **Serial-aware**: for a serial-tracked product the scrap MUST target
+        the specific units that were not returned (``pickedup − returned``
+        still on hand at the rental location).  Scrapping by product+qty alone
+        leaves the actual missing serial on hand and may relieve the wrong one.
         """
         prec = self.env['decimal.precision'].precision_get(
             'Product Unit of Measure')
@@ -99,14 +104,46 @@ class SaleFlowLostBrokenService(models.AbstractModel):
         rental_loc = order.company_id.rental_loc_id
         if not rental_loc:
             return
-        scrap = self.env['stock.scrap'].create({
+
+        lots = self.env['stock.lot']
+        if product.tracking == 'serial' and sale_line:
+            # The serials still out at the client on this line.
+            missing = sale_line.pickedup_lot_ids - sale_line.returned_lot_ids
+            on_hand = missing.filtered(lambda lot: any(
+                q.location_id == rental_loc
+                and float_compare(q.quantity, 0, precision_digits=prec) > 0
+                for q in lot.quant_ids))
+            lots = on_hand.sorted('name')[:int(round(qty))]
+
+        if lots:
+            for lot in lots:
+                self._create_rental_scrap(order, product, 1.0, rental_loc,
+                                          sale_line, lot=lot)
+            # Defensive: if fewer identifiable serials than classified, scrap
+            # the remainder generically so quantities still reconcile.
+            remainder = qty - len(lots)
+            if float_compare(remainder, 0, precision_digits=prec) > 0:
+                self._create_rental_scrap(order, product, remainder,
+                                          rental_loc, sale_line)
+        else:
+            self._create_rental_scrap(order, product, qty, rental_loc,
+                                      sale_line)
+
+    def _create_rental_scrap(self, order, product, qty, rental_loc, sale_line,
+                             lot=None):
+        """Create and process one scrap from the rental location, optionally
+        for a specific serial ``lot``."""
+        vals = {
             'product_id': product.id,
             'product_uom_id': product.uom_id.id,
             'scrap_qty': qty,
             'location_id': rental_loc.id,
             'company_id': order.company_id.id,
             'origin': order.name,
-        })
+        }
+        if lot:
+            vals['lot_id'] = lot.id
+        scrap = self.env['stock.scrap'].create(vals)
         scrap.do_scrap()
         if sale_line:
             scrap.move_ids.write({'sale_line_id': sale_line.id})

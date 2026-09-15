@@ -11,23 +11,39 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
     def action_cancel(self):
-        """After cancelling a picking, reconcile return demands.
+        """After cancelling a picking, reconcile return demands and — when a
+        rental *return* is cancelled — open the lost/broken wizard.
 
         When a backorder is cancelled, the pending outgoing demand is
         gone.  The return picking must be adjusted to only expect back
         what was actually delivered (not the cancelled backorder qty).
         (R22)
+
+        Cancelling a *return* picking means the delivered items will not come
+        back, so they must be classified as lost/broken for invoicing — the
+        same wizard shown on validation (R09).
         """
         # Capture sale orders before cancel (state changes after)
         orders = self.filtered(
             lambda p: p.sale_id and not p.return_id
         ).mapped('sale_id')
+        # Return pickings being cancelled → their expected items won't return.
+        return_pickings = self.filtered(lambda p: p.return_id and p.sale_id)
 
         res = super().action_cancel()
 
-        if not self.env.context.get('skip_sale_flow_sync'):
-            for order in orders:
-                self.env['sale.flow.sync.service']._reconcile_return_pickings(order)
+        if self.env.context.get('skip_sale_flow_sync'):
+            return res
+
+        for order in orders:
+            self.env['sale.flow.sync.service']._reconcile_return_pickings(order)
+
+        if not self.env.context.get('skip_lost_broken_check'):
+            for picking in return_pickings:
+                wizard_action = self.env[
+                    'sale.flow.return.service']._check_missing_returns(picking)
+                if wizard_action:
+                    return wizard_action
 
         return res
 

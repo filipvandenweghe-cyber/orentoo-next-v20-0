@@ -94,11 +94,20 @@ class SaleFlowReturnService(models.AbstractModel):
                 'broken_lost_unit_price': price,
             })
 
+        # Provide an explicit ``views`` (not just ``view_mode``): the Barcode
+        # app validates via its own ``doAction`` path, whose ``_preprocessAction``
+        # maps over ``action.views`` and crashes on a bare ``view_mode`` action.
+        # An explicit form view makes the wizard open in both the backend and
+        # the Barcode client.
         return {
             'type': 'ir.actions.act_window',
             'name': _('Missing Rental Items'),
             'res_model': 'sale.flow.lost.broken.wizard',
             'res_id': wizard.id,
+            'views': [
+                (self.env.ref(
+                    'sale_flow.sale_flow_lost_broken_wizard_view_form').id,
+                 'form')],
             'view_mode': 'form',
             'target': 'new',
         }
