@@ -87,7 +87,7 @@
                         <button name="action_view_sale_orders"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-shopping-cart"
+                                icon="shopping_cart"
                                 invisible="sale_order_count == 0">
                             <field name="sale_order_count"
                                    widget="statinfo"
@@ -96,7 +96,7 @@
                         <button name="action_view_transactions"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-credit-card"
+                                icon="credit_card"
                                 invisible="transaction_count == 0">
                             <field name="transaction_count"
                                    widget="statinfo"
@@ -105,7 +105,7 @@
                         <button name="action_view_registrations"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-ticket"
+                                icon="confirmation_number"
                                 invisible="registration_count == 0">
                             <field name="registration_count"
                                    widget="statinfo"

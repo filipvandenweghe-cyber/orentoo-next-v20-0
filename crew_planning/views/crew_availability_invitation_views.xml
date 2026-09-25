@@ -18,12 +18,12 @@
                        decoration-warning="response == 'partial'"
                        decoration-danger="response == 'unavailable'"/>
                 <field name="reminder_count" string="Reminders"/>
-                <button name="action_remind" type="object" string="Remind" icon="fa-bell"
+                <button name="action_remind" type="object" string="Remind" icon="notifications"
                         invisible="response != 'pending'"/>
                 <button name="action_set_available" type="object" string="Available"
-                        icon="fa-check" invisible="response != 'pending'"/>
+                        icon="check" invisible="response != 'pending'"/>
                 <button name="action_set_unavailable" type="object" string="Unavailable"
-                        icon="fa-times" invisible="response != 'pending'"/>
+                        icon="close" invisible="response != 'pending'"/>
             </list>
         </field>
     </record>

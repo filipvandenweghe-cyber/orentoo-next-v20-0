@@ -6,7 +6,8 @@
         <a t-if="this.calcData().show"
            t-on-click="this.showPopup"
            tabindex="0"
-           t-attf-class="fa fa-area-chart cursor-pointer {{ this.calcData().sufficient ? '' : 'text-danger' }}"
+           t-attf-class="oi cursor-pointer {{ this.calcData().sufficient ? '' : 'text-danger' }}"
+           data-icon="bar_chart"
            title="Set Availability"
         />
     </t>
@@ -35,10 +36,10 @@
                 </tbody>
             </table>
             <div t-if="this.props.calcData.sufficient" class="text-muted small">
-                <i class="fa fa-check-circle"/> Sufficient stock for this order.
+                <i class="oi" data-icon="check_circle"/> Sufficient stock for this order.
             </div>
             <div t-else="" class="text-danger small">
-                <i class="fa fa-exclamation-triangle"/> Not enough stock to fulfil the requested quantity.
+                <i class="oi" data-icon="warning"/> Not enough stock to fulfil the requested quantity.
             </div>
         </div>
     </t>

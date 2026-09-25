@@ -59,21 +59,21 @@
                         <button name="action_view_outgoing_moves"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-truck">
+                                icon="local_shipping">
                             <field name="outgoing_move_ids" invisible="1"/>
                             <span>Outgoing Moves</span>
                         </button>
                         <button name="action_view_return_moves"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-undo">
+                                icon="undo">
                             <field name="return_move_ids" invisible="1"/>
                             <span>Return Moves</span>
                         </button>
                         <button name="action_view_invoice_lines"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-file-text-o">
+                                icon="description">
                             <field name="invoice_line_ids" invisible="1"/>
                             <span>Invoice Lines</span>
                         </button>

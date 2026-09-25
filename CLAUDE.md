@@ -204,6 +204,16 @@ Applied across all modules; each change is commented at the call site.
 - **Views**: list fields can sit inside `<column>` wrappers, so prefer `//field[...]` over
   `/field[...]`; `sale_stock`'s inherited SO form has priority 20 (rental_set's must be
   higher to see `qty_at_date_widget`); `categ_id` is no longer on the product variant list.
+- **Icons: Font Awesome is GONE from the backend.** Odoo 20 uses Material Symbols
+  ligatures: `<i class="oi oi-fw" data-icon="arrow_right"/>` (`.oi::before` renders
+  `attr(data-icon)`). A view button's `icon="…"` is passed **straight through as
+  `data-icon`**, so `icon="fa-plus"` silently renders nothing. Any leftover `fa fa-*`
+  collapses to a **0×0 element** — present in the DOM and clickable from JS, but invisible
+  to the user (that is how the set fold chevron "disappeared"). Valid names are the
+  Material Symbols set already used across addons (`arrow_right`, `arrow_drop_down`,
+  `chevron_backward/forward`, `refresh`, `bar_chart`, `check_circle`, `warning`,
+  `open_in_new`, `add_circle`, `local_shipping`, `undo`, `description`, `swap_horiz`, …)
+  plus `oi_`-prefixed Odoo extras. Spinners are Bootstrap (`spinner-border`), not `fa-spin`.
 - **Owl 3**: templates reference the component explicitly (`this.x`), `t-esc` → `t-out`,
   `useState` → `proxy`, `useService("action")` → `usePlugin(ActionPlugin)`, and
   `onWillRender` comes from `@web/owl2/utils`. Migrated with

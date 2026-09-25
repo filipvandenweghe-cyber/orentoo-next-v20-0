@@ -120,7 +120,7 @@
                        optional="show"/>
                 <button name="action_add_set_component"
                         type="object"
-                        icon="fa-plus-circle"
+                        icon="add_circle"
                         title="Add an order-specific component to this Rental Set"
                         invisible="not is_set"/>
             </xpath>
@@ -158,7 +158,7 @@
                             type="object"
                             string="Add Component to this Order"
                             class="btn-secondary mt-2"
-                            icon="fa-plus"/>
+                            icon="add"/>
                 </div>
             </xpath>
 
