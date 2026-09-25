@@ -92,7 +92,15 @@
             </xpath>
 
             <!-- ── 4. Visible-to-customer toggle ──────────────────────────── -->
-            <xpath expr="//field[@name='order_line']//list//field[@name='product_template_id']"
+            <!--
+                Odoo 20 wraps product_template_id / product_id / name / label in
+                <column name="product_and_description">.  Anchoring on
+                product_template_id would inject our fields INSIDE that column
+                group, where they render stacked inside the Description cell
+                (and a <button> is dropped entirely).  Anchor on the <column>
+                itself so every field below becomes a real, separate column.
+            -->
+            <xpath expr="//field[@name='order_line']//list//column[@name='product_and_description']"
                    position="after">
                 <field name="visible_to_customer"
                        string="Visible"

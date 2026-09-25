@@ -11,8 +11,11 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Visible pricing columns before price_unit -->
-            <xpath expr="//field[@name='order_line']//list//field[@name='price_unit']"
+            <!-- Visible pricing columns before price_unit.
+                 Odoo 20 wraps price_unit in <column name="price_unit"> so modules can add
+                 to the same cell; we want real columns, so anchor on the column itself.
+                 Anchoring on the field would stack these inside the Base Price cell. -->
+            <xpath expr="//field[@name='order_line']//list//column[@name='price_unit']"
                    position="before">
                 <field name="base_rental_price"
                        string="Base Price"
@@ -33,7 +36,7 @@
             </xpath>
 
             <!-- Hidden fields required for compute/onchange logic -->
-            <xpath expr="//field[@name='order_line']//list//field[@name='price_unit']"
+            <xpath expr="//field[@name='order_line']//list//column[@name='price_unit']"
                    position="after">
                 <field name="applied_coefficient_table_id" column_invisible="True"/>
                 <field name="applied_coefficient_type_id" column_invisible="True"/>

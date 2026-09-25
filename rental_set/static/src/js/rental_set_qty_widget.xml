@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <templates xml:space="preserve">
 
-    <!-- Icon: green chart if enough stock, red if not -->
+    <!-- Same glyph as the standard product-level availability widget
+         (sale_stock QtyAtDate uses data-icon="area_chart"); red when short. -->
     <t t-name="rental_set.RentalSetQtyWidget">
         <a t-if="this.calcData().show"
            t-on-click="this.showPopup"
            tabindex="0"
            t-attf-class="oi cursor-pointer {{ this.calcData().sufficient ? '' : 'text-danger' }}"
-           data-icon="bar_chart"
+           data-icon="area_chart"
            title="Set Availability"
         />
     </t>

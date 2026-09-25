@@ -89,6 +89,18 @@ full rationale per feature. Read this first.
   `rental_flag_options` (default on).
 - Docs: `docs/rental_availability_requirements.{md,docx}`.
 
+### Set block layout (rental_set, list drag-drop)
+- One invariant, enforced in `SaleOrderLineListRenderer.normalizeSetBlocks()` after every
+  `sortDrop`: **a set parent is immediately followed by its descendants (DFS), with nothing
+  in between.** It replaces the old pair of special cases (set parent moved / component
+  moved out) and additionally evicts a *foreign* row — a plain product line, or another
+  set's component — that was dropped inside a set block. That gap is how a POS line ended
+  up wedged between a set and its component on S02101.
+- Orphans (component whose `set_parent_line_id` is not in the list) are treated as roots and
+  left in place, so a broken link can never make a row disappear.
+- It is **client-side only and runs on drop**: existing bad sequences in the DB are repaired
+  the next time the user drags *anything* in that order and saves.
+
 ### Return (receipt) demand (sale_flow) — "Option B"
 - **Receipt = what has gone OUT to the customer** = Σ of DONE outbound moves that reached
   the customer/rental location. "Until it is out, the client is not expected to return it."
@@ -201,9 +213,23 @@ Applied across all modules; each change is commented at the call site.
 - **Misc**: `ir.config_parameter.get_param/set_param` → typed `get_str/get_int/get_bool/
   get_float`; `ir.actions.report.report_file` removed; QWeb `t-call` takes named
   arguments (`title.translate="…"`, `url.f="…"`) instead of nested `t-set`.
-- **Views**: list fields can sit inside `<column>` wrappers, so prefer `//field[...]` over
-  `/field[...]`; `sale_stock`'s inherited SO form has priority 20 (rental_set's must be
+- **Views**: `sale_stock`'s inherited SO form has priority 20 (rental_set's must be
   higher to see `qty_at_date_widget`); `categ_id` is no longer on the product variant list.
+- **`<column>` groups in list views — mind what you xpath onto.** Odoo 20 groups several
+  list fields into one cell: the SO line list wraps `product_template_id` / `product_id` /
+  `name` / `label` in `<column name="product_and_description">` (likewise `sol_qty`,
+  `sol_uom`, `price_unit`). Two consequences:
+  - prefer `//field[...]` over `/field[...]` when *locating* a field;
+  - **never anchor a `position="after"` on a field that lives inside a `<column>`** unless
+    you want your node inside that group. Injected fields render *stacked inside the group's
+    cell* (no header, no own column, `optional` still honoured) and an injected `<button>` is
+    **dropped silently**. Anchor on the `<column>` element itself
+    (`//list//column[@name='product_and_description']`) to get real columns back.
+    That is how rental_set lost its row "+" (Add Component) button and had
+    `set_allocated_price` / `set_availability` / `visible_to_customer` swallowed into the
+    Description cell.
+- **Availability glyph**: the standard `sale_stock` QtyAtDate icon is `data-icon="area_chart"`;
+  `rental_set`'s set-level widget uses the *same* glyph on purpose so the two read alike.
 - **Icons: Font Awesome is GONE from the backend.** Odoo 20 uses Material Symbols
   ligatures: `<i class="oi oi-fw" data-icon="arrow_right"/>` (`.oi::before` renders
   `attr(data-icon)`). A view button's `icon="…"` is passed **straight through as
