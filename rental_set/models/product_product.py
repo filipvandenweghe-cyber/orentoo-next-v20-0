@@ -319,6 +319,73 @@ class ProductProduct(models.Model):
 
         return lines | candidates.filtered(_overlaps)
 
+    # ── "on option" by other orders (unconfirmed quotations) ────────────────
+    def _get_on_option_lines(self, from_date, to_date=False,
+                             ignored_order_id=False, warehouse_id=False):
+        """Rental lines held **on option** by OTHER orders over the window.
+
+        "On option" = a quotation (``state in ('draft', 'sent')``) explicitly
+        flagged ``rental_on_option`` that is not confirmed yet, kept alive until
+        its ``validity_date`` ("on option until").  These are a **soft** hold:
+        they do not reduce the committed availability, but the salesperson
+        should be warned they may firm up.  Opt-in only — an unconfirmed
+        quotation that is NOT flagged never counts.
+
+        Excludes the whole ``ignored_order_id`` (not just one line), so an order
+        never counts itself — even a draft order does not count its own option.
+        Same period-overlap and warehouse scoping as the confirmed reserved
+        term, on effective (or declared) pickup/return dates.
+        """
+        self.ensure_one()
+        to_date = to_date or from_date
+        domain = [
+            ('is_rental', '=', True),
+            ('product_id', '=', self.id),
+            ('order_id.state', 'in', ('draft', 'sent')),
+            ('order_id.rental_on_option', '=', True),  # explicit opt-in
+        ]
+        if ignored_order_id:
+            domain.append(('order_id', '!=', ignored_order_id))
+        if warehouse_id:
+            domain.append(('order_id.warehouse_id', '=', warehouse_id))
+        today = fields.Date.context_today(self)
+
+        def _live_and_overlaps(line):
+            order = line.order_id
+            # Option lapsed → no longer holds anything.
+            if order.validity_date and order.validity_date < today:
+                return False
+            eff_pickup = line._rental_effective_pickup_date() \
+                or line.reservation_begin
+            eff_return = line._rental_effective_return_date() \
+                or line.return_date
+            if not eff_pickup or not eff_return:
+                return False
+            return eff_return > from_date and eff_pickup <= to_date
+
+        return self.env['sale.order.line'].search(domain).filtered(
+            _live_and_overlaps)
+
+    def _get_on_option_qty(self, from_date, to_date=False,
+                           ignored_order_id=False, warehouse_id=False):
+        """Peak concurrent quantity held on option by OTHER orders over the
+        window — computed with the SAME step-function as the confirmed reserved
+        term (so overlapping options are counted at their peak, never
+        double-counted across time).  ``0`` when nothing is on option."""
+        self.ensure_one()
+        if not self.rent_ok:
+            return 0.0
+        to_date = to_date or from_date
+        lines = self._get_on_option_lines(
+            from_date, to_date, ignored_order_id=ignored_order_id,
+            warehouse_id=warehouse_id)
+        if not lines:
+            return 0.0
+        rented_quantities, key_dates = lines._get_rented_quantities(
+            [from_date, to_date])
+        return self._reserved_peak(
+            rented_quantities, key_dates, from_date, to_date)
+
     def _get_repair_unavailable_qty(self, from_date, to_date=False,
                                     warehouse_id=False, lot_id=False):
         """Quantity of this product tied up in **open** repairs whose window

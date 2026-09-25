@@ -38,18 +38,34 @@ patch(QtyAtDateWidget.prototype, {
 
         const orderDemand = data.order_product_demand || 0;
         const lineQty = data.product_uom_qty || 0;
-        if (orderDemand <= lineQty) return;
-
         const available = data.state === 'sale'
             ? data.free_qty_today
             : data.virtual_available_at_date;
 
-        if (available !== undefined && orderDemand > available) {
+        const markIssue = () => {
             this.calcData.will_be_fulfilled = false;
-            if (['draft', 'sent'].includes(data.state)) {
-                this.calcData.forecasted_issue = !data.is_mto;
-            } else {
-                this.calcData.forecasted_issue = true;
+            this.calcData.forecasted_issue =
+                ['draft', 'sent'].includes(data.state) ? !data.is_mto : true;
+        };
+
+        // Aggregate order demand across lines exceeds available.
+        if (orderDemand > lineQty && available !== undefined
+                && orderDemand > available) {
+            markIssue();
+        }
+
+        // Risk-based "on option": red when live options held by OTHER orders
+        // could make this line unfulfillable (worst case if they confirm).
+        // Never noisy — only when the worst case actually falls short.
+        if (data.rental_flag_options) {
+            const onOption = data.rental_on_option_other || 0;
+            if (onOption > 0) {
+                const avail = data.rental_pickable || 0;
+                const worstCase = Math.max(avail - onOption, 0);
+                const demand = Math.max(orderDemand, lineQty);
+                if (demand > worstCase) {
+                    markIssue();
+                }
             }
         }
     },
@@ -72,6 +88,9 @@ patch(qtyAtDateWidget, {
         { name: 'rental_repair_installed', type: 'boolean' },
         { name: 'rental_onhand_json', type: 'json' },
         { name: 'rental_show_stock_locations', type: 'boolean' },
+        { name: 'rental_on_option_other', type: 'float' },
+        { name: 'rental_on_option_until', type: 'char' },
+        { name: 'rental_flag_options', type: 'boolean' },
     ],
 });
 
@@ -173,9 +192,11 @@ patch(QtyAtDatePopover.prototype, {
             row.className = 'rental_set_breakdown' + (opts.top ? ' border-top' : '');
             const strong = opts.strong ? 'strong' : 'span';
             const sign = opts.sign ? `<span class="text-muted me-1">${opts.sign}</span>` : '';
+            const valCls = opts.danger ? ' class="text-danger"'
+                : (opts.warn ? ' class="text-warning fw-bold"' : '');
             row.innerHTML = `
                 <td class="${opts.indent ? 'ps-3' : ''}"><${strong}${opts.muted ? ' class="text-muted"' : ''}>${label}</${strong}></td>
-                <td class="text-end">${sign}<${strong}${opts.danger ? ' class="text-danger"' : ''}>${fmt(value)}</${strong}> ${uom}</td>
+                <td class="text-end">${sign}<${strong}${valCls}>${fmt(value)}</${strong}> ${uom}</td>
             `;
             table.appendChild(row);
         };
@@ -203,6 +224,21 @@ patch(QtyAtDatePopover.prototype, {
             addRow(_t('of which reserved for this order'), self,
                    { muted: true, indent: true });
         }
+
+        // On option by OTHER orders (soft hold) — awareness line + worst case.
+        const onOption = data.rental_flag_options
+            ? (data.rental_on_option_other || 0) : 0;
+        if (onOption > 0) {
+            let label = _t('On option by other orders');
+            if (data.rental_on_option_until) {
+                label += ` (${_t('until')} ${data.rental_on_option_until})`;
+            }
+            addRow(label, onOption, { warn: true });
+            const worst = Math.max(avail - onOption, 0);
+            addRow(_t('Available if those options confirm'), worst,
+                   { strong: true, danger: requested > worst });
+        }
+
         addRow(_t('Requested by this order'), requested);
         addRow(_t('Missing for this order'), missing,
                { strong: missing > 0, danger: missing > 0 });

@@ -187,6 +187,34 @@ class RentalAvailabilityReport(models.AbstractModel):
                 for pid, cell_list in batch.items():
                     avail[(pid, company.id, wh.id)] = cell_list
 
+        # Optionally fold the "on option" soft holds into the shown figure —
+        # available becomes the worst case if the options confirm
+        # (available − on_option).  Off by default: the matrix shows committed
+        # availability.  The step-function is built ONCE per (product, wh) over
+        # the whole window and each column's peak is read from it (same basis
+        # as the confirmed reserved term), so this stays cheap.
+        if options.get('include_options') and pairs:
+            full_from, full_to = pairs[0][0], pairs[-1][1]
+            for company in companies:
+                comp_products = products.filtered(
+                    lambda p: not p.company_id or p.company_id.id == company.id)
+                for wh in wh_by_company.get(
+                        company.id, self.env['stock.warehouse']):
+                    for product in comp_products:
+                        cell_list = avail.get((product.id, company.id, wh.id))
+                        if not cell_list:
+                            continue
+                        opt_lines = product._get_on_option_lines(
+                            full_from, full_to, warehouse_id=wh.id)
+                        if not opt_lines:
+                            continue
+                        rq, kd = opt_lines._get_rented_quantities(
+                            [full_from, full_to])
+                        for i, (f, t) in enumerate(pairs):
+                            on_opt = product._reserved_peak(rq, kd, f, t)
+                            if on_opt:
+                                cell_list[i]['available'] -= on_opt
+
         # "Only unavailability": keep a product only when AT LEAST ONE of its
         # cells (any company / warehouse / interval) is overbooked
         # (signed available < 0), then show ALL of that product's rows so the
@@ -278,6 +306,9 @@ class RentalAvailabilityReport(models.AbstractModel):
             'utilisation': utilisation,
             'uom': product.uom_id.name or '',
             'orders': self._cell_orders(product, wh, f, t),
+            'on_option': round(product._get_on_option_qty(
+                f, t, warehouse_id=wh.id), 2),
+            'option_orders': self._cell_option_orders(product, wh, f, t),
             'repairs': self._cell_repairs(product, wh, f, t),
             'elsewhere': self._availability_elsewhere(product, company, wh, f, t),
         }
@@ -308,6 +339,33 @@ class RentalAvailabilityReport(models.AbstractModel):
                 'partner': line.order_id.partner_id.display_name or '',
                 'start': self._fmt_local(start),
                 'end': self._fmt_local(end),
+                'qty': round(line._rental_effective_reserved_qty(), 2),
+            })
+        data.sort(key=lambda d: d['sort'])
+        for d in data:
+            del d['sort']
+        return data
+
+    def _cell_option_orders(self, product, wh, from_date, to_date):
+        """Unconfirmed quotations holding this product **on option** over the
+        cell (the same set the ``_get_on_option_qty`` term counts).  Read as
+        the user, so record rules apply.  Sorted by rental start then end."""
+        lines = product._get_on_option_lines(
+            from_date, to_date, warehouse_id=wh.id)
+        data = []
+        for line in lines:
+            start = line._rental_effective_pickup_date() \
+                or line.reservation_begin or line.start_date
+            end = line._rental_effective_return_date() or line.return_date
+            data.append({
+                'sort': (start or from_date, end or to_date),
+                'order_id': line.order_id.id,
+                'order_name': line.order_id.name,
+                'partner': line.order_id.partner_id.display_name or '',
+                'start': self._fmt_local(start),
+                'end': self._fmt_local(end),
+                'until': (line.order_id.validity_date.isoformat()
+                          if line.order_id.validity_date else ''),
                 'qty': round(line._rental_effective_reserved_qty(), 2),
             })
         data.sort(key=lambda d: d['sort'])

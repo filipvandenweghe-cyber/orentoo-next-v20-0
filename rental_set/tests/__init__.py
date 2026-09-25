@@ -6,3 +6,4 @@ from . import test_rental_return_operation_date
 from . import test_rental_transfer_grounding
 from . import test_rental_availability_batch
 from . import test_rental_availability_perf
+from . import test_rental_on_option

@@ -242,6 +242,24 @@ class SaleOrderLine(models.Model):
         related='company_id.rental_show_stock_locations',
         string='Show Physical Stock in Availability Pop-up',
     )
+    rental_flag_options = fields.Boolean(
+        related='company_id.rental_flag_options',
+        string='Warn About Stock On Option',
+    )
+    rental_on_option_other = fields.Float(
+        string='On option by other orders',
+        compute='_compute_rental_breakdown',
+        digits='Product Unit of Measure',
+        help='Quantity held on option by OTHER, unconfirmed orders '
+             '(quotations still valid) whose rental period overlaps this one. '
+             'A soft hold — informational only.',
+    )
+    rental_on_option_until = fields.Char(
+        string='Options Valid Until',
+        compute='_compute_rental_breakdown',
+        help='Earliest validity (option) date among the overlapping '
+             'unconfirmed orders holding this product on option.',
+    )
 
     def get_rental_warehouse_availability(self):
         """Availability of this line's product for its rental period, per
@@ -686,7 +704,7 @@ class SaleOrderLine(models.Model):
     @api.depends('product_id', 'product_uom_qty', 'is_rental',
                  'reservation_begin', 'return_date', 'state',
                  'free_qty_today')
-    def _compute_rental_breakdown(self):
+    def _compute_rental_breakdown(self):  # noqa: C901
         """Compute the auditable availability breakdown for the pop-up:
         per-internal-location on-hand, reserved by this order, reserved by
         other orders (period-aware), in-repair, and the net pickable figure.
@@ -701,6 +719,8 @@ class SaleOrderLine(models.Model):
             line.rental_total_stock = 0.0
             line.rental_onhand_json = False
             line.rental_repair_installed = repair_installed
+            line.rental_on_option_other = 0.0
+            line.rental_on_option_until = False
 
             product = line.product_id
             order = line.order_id
@@ -743,6 +763,24 @@ class SaleOrderLine(models.Model):
             line.rental_reserved_self = reserved_self
             line.rental_reserved_other = reserved_other
             line.rental_in_repair = in_repair
+
+            # On option by OTHER (unconfirmed) orders — a soft hold shown for
+            # awareness; it never changes the committed availability above.
+            # The whole current order is excluded, so it never counts itself.
+            if order.company_id.rental_flag_options and product.rent_ok \
+                    and hasattr(product, '_get_on_option_lines'):
+                opt_lines = product._get_on_option_lines(
+                    from_date, to_date, ignored_order_id=order.id,
+                    warehouse_id=wh_id)
+                if opt_lines:
+                    rq, kd = opt_lines._get_rented_quantities(
+                        [from_date, to_date])
+                    line.rental_on_option_other = product._reserved_peak(
+                        rq, kd, from_date, to_date)
+                    valids = [d for d in opt_lines.order_id.mapped(
+                        'validity_date') if d]
+                    line.rental_on_option_until = (
+                        min(valids).isoformat() if valids else False)
             # free_qty_today is already repair-aware (see forecast) and is
             # the time-based "available to this order" figure.
             line.rental_pickable = line.free_qty_today

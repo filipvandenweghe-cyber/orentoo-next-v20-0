@@ -9,3 +9,8 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         string="Show physical stock & locations in availability pop-up",
     )
+    rental_flag_options = fields.Boolean(
+        related='company_id.rental_flag_options',
+        readonly=False,
+        string="Warn about stock on option by other orders",
+    )

@@ -98,6 +98,15 @@
                             Only show unavailability
                         </label>
                     </div>
+                    <div class="form-check ms-2 mb-1">
+                        <input type="checkbox" class="form-check-input"
+                               id="o_ra_include_options"
+                               t-att-checked="state.filters.includeOptions"
+                               t-on-change="onIncludeOptionsChange"/>
+                        <label class="form-check-label small" for="o_ra_include_options">
+                            Include options (on option)
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -182,6 +191,9 @@
                         <tr><th>Utilisation</th>
                             <td><t t-if="props.detail.utilisation === null">N/A</t>
                                 <t t-else=""><t t-esc="props.detail.utilisation"/>%</t></td></tr>
+                        <tr t-if="props.detail.on_option">
+                            <th class="text-warning">On option (soft)</th>
+                            <td class="text-warning fw-bold" t-esc="props.detail.on_option"/></tr>
                     </tbody>
                 </table>
 
@@ -204,6 +216,28 @@
                     </tbody>
                 </table>
                 <p class="text-muted" t-if="!props.detail.orders.length">No orders affect this interval.</p>
+
+                <h6 t-if="props.detail.option_orders and props.detail.option_orders.length"
+                    class="text-warning">On option by other orders (soft hold)</h6>
+                <table class="table table-sm table-striped mb-3"
+                       t-if="props.detail.option_orders and props.detail.option_orders.length">
+                    <thead><tr><th>Order</th><th>Customer</th><th>Start</th><th>End</th><th>Option until</th><th class="text-end">Qty</th></tr></thead>
+                    <tbody>
+                        <t t-foreach="props.detail.option_orders" t-as="o" t-key="o_index">
+                            <tr>
+                                <td>
+                                    <a href="#" t-on-click.prevent="() => this.openOrder(o.order_id)"
+                                       t-esc="o.order_name"/>
+                                </td>
+                                <td t-esc="o.partner"/>
+                                <td t-esc="o.start"/>
+                                <td t-esc="o.end"/>
+                                <td t-esc="o.until"/>
+                                <td class="text-end" t-esc="o.qty"/>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
 
                 <h6>Repairs affecting availability</h6>
                 <table class="table table-sm table-striped mb-3" t-if="props.detail.repairs.length">

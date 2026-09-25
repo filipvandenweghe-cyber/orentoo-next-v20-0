@@ -61,6 +61,16 @@ full rationale per feature. Read this first.
 - **Set availability** = `floor(min over leaf components of component_avail / qty-per-set)`.
 - Pop-up = two sections: *For this rental* (time-based) + *Physical stock (right now)*
   (a partition that sums to Total). No forecast rewrite; padding stays standard config.
+- **On option by other orders** (informational; never changes committed Available):
+  `product._get_on_option_qty(from,to, ignored_order_id, warehouse_id)` = peak of unconfirmed
+  quotations **explicitly flagged `sale.order.rental_on_option`** (opt-in; `state in
+  ('draft','sent')`, `validity_date` = option end, not lapsed) overlapping the window, via the
+  same step-fn as reserved; **excludes the whole current order** (`order_id != …`).
+  Surfaced on `sale.order.line` (`rental_on_option_other`, `rental_on_option_until`); shown as an
+  orange pop-up line + "Available if those options confirm". The **availability icon goes red
+  risk-based**: `demand > max(Available − OnOption, 0)`. Availability report drill-down
+  (`get_cell_detail`) adds `on_option` + `option_orders`. Gated by company
+  `rental_flag_options` (default on).
 - Docs: `docs/rental_availability_requirements.{md,docx}`.
 
 ### Return (receipt) demand (sale_flow) — "Option B"

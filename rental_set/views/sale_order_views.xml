@@ -34,6 +34,15 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
+            <!-- ── 0. "On option" opt-in (rental quotations) ──────────────── -->
+            <!-- Placed next to Expiration: its date is the option's end date. -->
+            <xpath expr="//field[@name='validity_date']" position="after">
+                <field name="is_rental_order" invisible="1"/>
+                <field name="rental_on_option"
+                       invisible="not is_rental_order"
+                       readonly="state not in ('draft', 'sent')"/>
+            </xpath>
+
             <!-- ── 1. Invisible carrier fields ────────────────────────────── -->
             <xpath expr="//field[@name='order_line']//list//field[@name='display_type']"
                    position="after">
