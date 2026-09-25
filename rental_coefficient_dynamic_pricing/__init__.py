@@ -6,9 +6,12 @@
 # ---------------
 # final_price = base_rental_price x coefficient x dynamic_multiplier x qty
 #
-# base_rental_price : Odoo-native pricelist / product.pricing result for the
-#                     rental duration.  Falls back to Sales Price when no
-#                     pricelist rule matches.
+# base_rental_price : Odoo-native pricelist result for ONE rental period.
+#                     Falls back to Sales Price when no pricelist rule matches.
+#                     Odoo 20 removed product.pricing (rental pricing moved to
+#                     product.rent_periodicity + the pricelist) and prices a
+#                     rental line for the WHOLE period, so the adapter divides
+#                     the period count back out -- see RE01.
 # coefficient       : looked up from a rental.coefficient.table by duration.
 # dynamic_multiplier: weighted-average factor_percentage / 100 from a
 #                     rental.dynamic.pricing.table across the rental period.
@@ -87,8 +90,14 @@
 # PRICING ENGINE (rental.pricing.service)
 # ------------------------------------------
 # RE01  _get_base_rental_price_for_line(line) retrieves the Odoo-native
-#       base rental price.  THIS IS THE ONLY METHOD TO REVIEW AFTER
-#       UPGRADING TO ODOO 19.3.
+#       base rental price and normalises it to ONE period via
+#       _to_single_period_price(line, price).  THESE TWO METHODS ARE THE
+#       ONLY COUPLING POINT TO ODOO'S RENTAL PRICING -- REVIEW THEM AFTER
+#       EVERY ODOO UPGRADE.  Odoo 20: _get_pricelist_price() returns the
+#       price of the whole rental period; the coefficient table applies the
+#       duration itself, so the period count is divided back out or the
+#       duration would be counted twice.  The normalisation is applied to
+#       EVERY base: standalone line, fixed set parent and component sum.
 # RE02  _compute_duration_integer(start, end, unit) converts a rental
 #       period to a rounded-up integer in the table's duration unit.
 #       Minimum 1 for any positive period.
@@ -110,8 +119,9 @@
 #       For newly created lines, create() calls
 #       _apply_coefficient_dynamic_pricing() which uses write().
 # RI02  Base-price adapter: _get_pricelist_price() with context flag
-#       skip_coefficient_dynamic_pricing retrieves the Odoo-native price.
-#       THIS IS THE ONLY CODE TO REVIEW AFTER ODOO 19.3 UPGRADE.
+#       skip_coefficient_dynamic_pricing retrieves the Odoo-native price,
+#       then _to_single_period_price() scales it to one period (see RE01).
+#       REVIEW AFTER EVERY ODOO UPGRADE.
 # RI03  Stored detail fields on sale.order.line: base_rental_price,
 #       applied_coefficient, applied_dynamic_factor_percentage,
 #       applied_dynamic_multiplier, manual override flags.
@@ -126,8 +136,10 @@
 #       overwrite the unit price on quantity changes — the hand-typed price
 #       is preserved.  The flag is cleared (engine regains control) when the
 #       product, rental period or partner changes, when the coefficient or
-#       dynamic factor is edited, or on "Update Rental Prices"
-#       (force_price_recomputation).
+#       dynamic factor is edited, or on a forced recomputation
+#       (force_price_recomputation).  Odoo 20 removed the "Update Rental
+#       Prices" button and sale.order.show_update_duration; the force path is
+#       now order._recompute_rental_prices().
 # RI07  Idempotent recomputation — no coefficient compounding.  Each
 #       recomputation derives the final price from the Odoo-native base
 #       (base × coefficient × dynamic_multiplier), never from the
@@ -141,8 +153,10 @@
 # RI08  Auto-recompute rental prices on save.  sale.order.write() refreshes
 #       the coefficient/duration/dynamic driven unit price of rental lines
 #       whenever a price-relevant field changes (period, customer, pricelist,
-#       or any order-line edit) on a draft/sent quotation — so the user need
-#       not press "Update Rental Prices".  It runs WITHOUT force, so lines
+#       or any order-line edit) on a draft/sent quotation.  Since Odoo 20
+#       removed the "Update Rental Prices" button this is the only automatic
+#       path; the partner onchange also recomputes softly (RI05).  It runs
+#       WITHOUT force, so lines
 #       with a hand-typed price (technical_price_unit != price_unit, i.e.
 #       manual_price_override) are preserved; only the explicit button
 #       force-resets them.  Re-entrancy is guarded by the rental_save_recompute

@@ -161,12 +161,20 @@
 # PY01  One dossier = one payment transaction for the total.
 # PY02  Transaction linked to dossier and all generated sale orders.
 # PY03  Payment provider resolved: profile default → demo → any enabled.
+#       Odoo 20 replaced payment.provider.state by active (archived == disabled)
+#       + is_live, so "enabled" means "not archived" and the default search
+#       already excludes archived records.  _ensure_provider_journal() guarantees
+#       the provider posts to a bank journal.
 # PY04  payment_pending_until set from profile timeout config.
 # PY05  action_payment_success: marks paid, keeps orders, triggers email (website).
 # PY06  action_payment_failed: cancels generated orders, sets payment_failed.
 # PY07  action_payment_expired: cancels generated orders, sets payment_expired.
 # PY08  Cron expires pending dossiers after payment_pending_until.
 # PY09  payment.transaction._post_process override for dossier-level logic.
+#       Odoo 20 call-side rules: writing on a payment.transaction requires
+#       payment_safe_write=True in the context, and _post_process() must be
+#       reached through _post_process_with_lock(), which locks the transaction,
+#       sets that context and guarantees it runs at most once.
 # PY10  All payment methods idempotent (safe to call multiple times).
 #
 # --- Event Ticket Integration (EV) ---

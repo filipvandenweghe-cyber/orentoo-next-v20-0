@@ -11,16 +11,17 @@ full rationale per feature. Read this first.
 - **Commit/push only when the user asks.** Commit footers:
   - `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
   - `Claude-Session: https://claude.ai/code/session_015UyktmijNHjiCtQB359rzX`
-- **Running tests locally** (plain `odoo-bin -i` marks user modules "not installable" —
-  you must pass the Enterprise addons path):
+- **Running tests locally.** The `odoo-bin` wrapper on `$PATH` already injects the
+  addons path and the database of the current build, so never pass `-d` or
+  `--addons-path` (the DB name changes with every build):
   ```
-  /home/odoo/src/odoo/odoo-bin \
-    --addons-path=/home/odoo/src/odoo/addons,/home/odoo/src/enterprise,/home/odoo/src/themes,/home/odoo/src/user \
-    -d filipvandenweghe-cyber-orentoo-demo-abinbev-main-36827463 \
-    -u <module> --test-enable --test-tags /<module> --stop-after-init --no-http
+  odoo-bin -u <module> --test-enable --test-tags /<module> --stop-after-init --no-http
   ```
-- `odoo shell` works (same addons path). Shell sessions **roll back** unless you call
-  `env.cr.commit()`. The dev DB is `filipvandenweghe-cyber-orentoo-demo-abinbev-main-36827463`.
+  Run the whole custom suite by listing the modules and tags comma-separated. Browser
+  tests (`HttpCase.browser_js`) cannot run in the AI sandbox — Chrome cannot fork there;
+  they are tagged `-standard` and run with an explicit `--test-tags`.
+- `odoo shell` works the same way (`odoo-bin shell --no-http`). Shell sessions **roll
+  back** unless you call `env.cr.commit()`.
 - An Odoo.sh **rebuild** rebuilds container+DB from git; it does not touch git history.
 
 ## Warehouses / locations (dev)
