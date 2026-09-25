@@ -20,17 +20,16 @@
  * • Component rows are draggable (o_row_draggable preserved) so the user
  *   can reorder components within their own set.
  *
- * • `sortDrop` override — uses DB resIds (not OWL datapoint IDs) throughout
- *   because sale_management's sortDrop calls leaveEditMode() BEFORE the
- *   actual resequence, which can trigger a record reload and assign new
- *   datapoint IDs to existing records.  resIds are stable across reloads.
+ * • `sortDrop` override — after the standard drop, `normalizeSetBlocks()`
+ *   restores one invariant: a set parent is immediately followed by its
+ *   descendants (DFS order), with nothing in between.  That single rule
+ *   covers a set parent being moved, a component being dragged out of its
+ *   set, and a foreign row being dropped inside a set block.
  *
- *   – Set parent dragged  → after the parent's sequence is saved, every
- *     descendant (DFS tree order) is resequenced to follow it.
- *
- *   – Component dragged   → after the drop the new position is validated.
- *     If the component landed outside its parent's range (isWithinParentRange),
- *     the move is immediately reverted.
+ *   Records are keyed on DB resIds (not OWL datapoint IDs) because
+ *   sale_management's sortDrop calls leaveEditMode() BEFORE the actual
+ *   resequence, which can trigger a record reload and assign new datapoint
+ *   IDs.  resIds are stable across reloads.
  */
 import { patch } from "@web/core/utils/patch";
 import { SaleOrderLineListRenderer } from "@sale/js/sale_order_line_field/sale_order_line_field";
@@ -172,154 +171,109 @@ patch(SaleOrderLineListRenderer.prototype, {
     // ── Drag-drop helpers ─────────────────────────────────────────────────
 
     /**
-     * Collect all descendant DB IDs (resIds) of a set record in DFS tree
-     * order, matching their current visual sequence.
+     * Desired row order for the whole list.
      *
-     * We use resIds (DB integers) rather than OWL datapoint IDs because
-     * sale_management.sortDrop calls leaveEditMode() before the resequence,
-     * which may reload records and assign fresh datapoint IDs.
+     * Everything that is not a set component keeps its current relative
+     * position; every set parent is immediately followed by its descendants
+     * (DFS, siblings in their current relative order).
      *
-     * @param  {Object} parentRecord  OWL record with is_set=true and a resId
-     * @returns {number[]}  flat array of DB IDs in tree order
+     * Orphans — a component whose parent line is not in the list — are
+     * treated as roots and left where they are, so nothing can ever vanish
+     * from view because of a broken link.
+     *
+     * @returns {Object[]}  records, in the order they should appear
      */
-    collectSetDescendantResIds(parentRecord) {
-        const result = [];
+    computeDesiredSetOrder() {
+        const records = this.props.list.records;
 
-        // Build parentResId → [childResId, …] index
-        const childResIdsByParentResId = new Map();
-        for (const record of this.props.list.records) {
-            if (!record.resId) continue; // skip unsaved records
-            const parentResId = record.data.set_parent_line_id?.id;
-            if (!parentResId) continue;
-            if (!childResIdsByParentResId.has(parentResId)) {
-                childResIdsByParentResId.set(parentResId, []);
-            }
-            childResIdsByParentResId.get(parentResId).push(record.resId);
-        }
-
-        // Sort each sibling group by current visual position
-        for (const siblings of childResIdsByParentResId.values()) {
-            siblings.sort((a, b) => {
-                const ai = this.props.list.records.findIndex((r) => r.resId === a);
-                const bi = this.props.list.records.findIndex((r) => r.resId === b);
-                return ai - bi;
-            });
-        }
-
-        // DFS: parent → its children (in order) → their children, etc.
-        const dfs = (resId) => {
-            for (const childResId of childResIdsByParentResId.get(resId) || []) {
-                result.push(childResId);
-                dfs(childResId);
-            }
+        // Only saved lines have a resId, and set_parent_line_id points at one.
+        const resIdsInList = new Set(records.map((r) => r.resId).filter(Boolean));
+        const parentResIdOf = (rec) =>
+            rec.data.is_set_component ? rec.data.set_parent_line_id?.id || null : null;
+        const hasParentInList = (rec) => {
+            const pid = parentResIdOf(rec);
+            return !!pid && resIdsInList.has(pid);
         };
 
-        dfs(parentRecord.resId);
-        return result;
+        // parentResId → [child records], in current visual order
+        const childrenByParent = new Map();
+        for (const rec of records) {
+            if (!hasParentInList(rec)) continue;
+            const pid = parentResIdOf(rec);
+            if (!childrenByParent.has(pid)) {
+                childrenByParent.set(pid, []);
+            }
+            childrenByParent.get(pid).push(rec);
+        }
+
+        const desired = [];
+        const seen = new Set();
+        const emit = (rec) => {
+            if (seen.has(rec.id)) return; // also guards against a parent cycle
+            seen.add(rec.id);
+            desired.push(rec);
+            for (const child of childrenByParent.get(rec.resId) || []) {
+                emit(child);
+            }
+        };
+        for (const rec of records) {
+            if (!hasParentInList(rec)) {
+                emit(rec);
+            }
+        }
+        return desired;
     },
 
     /**
-     * Check that a component record is still adjacent to its parent after a
-     * drop.  Walks backwards from the component's position:
-     *   • If the parent record is found first            → valid ✓
-     *   • If a sibling (same set_parent_line_id)  is found → keep walking ✓
-     *   • Anything else first                            → invalid ✗
+     * Resequence the list until it matches computeDesiredSetOrder().
      *
-     * Uses resId comparisons (stable DB integers) throughout.
+     * Walks left to right and only issues a resequence for a position that
+     * is actually wrong, so a clean drop costs nothing.  The record list is
+     * re-read on every iteration because resequence() re-sorts it.
      *
-     * @param {Object} movedRecord  current OWL record for the moved component
-     * @param {number} parentResId  DB id of the expected parent line
-     * @returns {boolean}
+     * Records are matched on resId when they have one (stable across the
+     * reload that sale_management.sortDrop can trigger) and on the datapoint
+     * id otherwise.
      */
-    isWithinParentRange(movedRecord, parentResId) {
-        const records = this.props.list.records;
-        const movedIdx = records.indexOf(movedRecord);
+    async normalizeSetBlocks() {
+        const keyOf = (rec) => rec.resId || rec.id;
+        const desiredKeys = this.computeDesiredSetOrder().map(keyOf);
 
-        for (let i = movedIdx - 1; i >= 0; i--) {
-            const rec = records[i];
-            if (rec.resId === parentResId) return true;               // found parent ✓
-            if (rec.data.set_parent_line_id?.id === parentResId) continue; // sibling ✓
-            return false; // something else → out of range ✗
+        for (let i = 0; i < desiredKeys.length; i++) {
+            const records = this.props.list.records;
+            if (records[i] && keyOf(records[i]) === desiredKeys[i]) {
+                continue; // already in place
+            }
+            const rec = records.find((r) => keyOf(r) === desiredKeys[i]);
+            if (!rec) continue;
+            const prevRec =
+                i > 0 ? records.find((r) => keyOf(r) === desiredKeys[i - 1]) : null;
+            // Odoo 20: StaticList.resequence([movedId], targetId) — the moved
+            // id is an array and the options argument no longer exists.
+            await this.props.list.resequence(
+                [String(rec.id)],
+                prevRec ? String(prevRec.id) : null
+            );
         }
-        return false;
     },
 
     /**
      * @override
-     * Extends the base sortDrop with Rental Set rules, using resId-based
-     * record lookup throughout to survive potential record reloads.
+     * Extends the base sortDrop with the Rental Set layout invariant:
      *
-     * 1. Set parent moved → resequence all descendants (DFS tree order) to
-     *    follow, using fresh record lookups after each await.
+     *   a set parent is immediately followed by its components (and their
+     *   own nested components, DFS order), with nothing in between.
      *
-     * 2. Component moved → validate position; if it landed outside its
-     *    parent's range resequence it back to its original position.
+     * Enforcing that invariant after the drop — rather than special-casing
+     * "set parent moved" and "component moved" — closes the case that used
+     * to slip through: a foreign row (a plain product line, or a component
+     * of another set) dropped in the middle of a set block silently became
+     * part of that block.  It is now pushed out below the block instead.
      */
     async sortDrop(dataRowId, params) {
         // Odoo 20 changed the signature: sortDrop(dataRowId, {element, previous})
         // — the old (dataRowId, dataGroupId, params) triple is gone.
-        const records = this.props.list.records;
-
-        // Identify the moved record
-        const movedRecord = records.find((r) => String(r.id) === String(dataRowId));
-
-        // Capture stable DB IDs BEFORE the drop
-        // (datapoint IDs may be reassigned after leaveEditMode + reload)
-        const movedResId = movedRecord?.resId || null;
-        const isSetParent = !!movedRecord?.data.is_set;
-        const movedParentResId = movedRecord?.data.is_set_component
-            ? movedRecord.data.set_parent_line_id?.id
-            : null;
-
-        // Remember record before the moved row (for component revert)
-        const movedIdx = movedRecord ? records.indexOf(movedRecord) : -1;
-        const prevResId = movedIdx > 0 ? records[movedIdx - 1].resId : null;
-
-        // Collect descendant DB IDs before the drop
-        const descendantResIds = isSetParent
-            ? this.collectSetDescendantResIds(movedRecord)
-            : [];
-
-        // ── Standard drop ─────────────────────────────────────────────────
         await super.sortDrop(dataRowId, params);
-
-        // ── Set parent: move descendants to follow ────────────────────────
-        if (descendantResIds.length) {
-            // Re-find parent by resId — its datapoint ID may have changed
-            const parentRecord = movedResId
-                ? this.props.list.records.find((r) => r.resId === movedResId)
-                : null;
-            let lastId = parentRecord ? String(parentRecord.id) : String(dataRowId);
-
-            for (const resId of descendantResIds) {
-                // Fresh lookup by resId after each await (list may have re-sorted)
-                const childRecord = this.props.list.records.find((r) => r.resId === resId);
-                if (!childRecord) continue;
-                // Odoo 20: StaticList.resequence([movedId], targetId) — the
-                // moved id is an array and there is no options argument.
-                await this.props.list.resequence([String(childRecord.id)], lastId);
-                lastId = String(childRecord.id);
-            }
-            return;
-        }
-
-        // ── Component: revert if dropped outside its parent range ─────────
-        if (movedParentResId && movedResId) {
-            const currentMovedRecord = this.props.list.records.find(
-                (r) => r.resId === movedResId
-            );
-            if (
-                currentMovedRecord &&
-                !this.isWithinParentRange(currentMovedRecord, movedParentResId)
-            ) {
-                const prevRecord = prevResId
-                    ? this.props.list.records.find((r) => r.resId === prevResId)
-                    : null;
-                await this.props.list.resequence(
-                    [String(currentMovedRecord.id)],
-                    prevRecord ? String(prevRecord.id) : null
-                );
-            }
-        }
+        await this.normalizeSetBlocks();
     },
 });

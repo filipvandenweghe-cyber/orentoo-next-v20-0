@@ -21,7 +21,9 @@
                        string="Scanned Packages" readonly="1"
                        invisible="not rental_scanning_package_ids"/>
             </field>
-            <xpath expr="//page[@name='operations']//field[@name='move_ids']//list//field[@name='product_id']"
+            <!-- Anchor on the unnamed <column> that wraps product_id (Odoo 20), so
+                 "From Package" is a real column and not stacked in the Product cell. -->
+            <xpath expr="//page[@name='operations']//field[@name='move_ids']//list//column[field[@name='product_id']]"
                    position="after">
                 <field name="rental_scanning_src_package_ids"
                        string="From Package" widget="many2many_tags"

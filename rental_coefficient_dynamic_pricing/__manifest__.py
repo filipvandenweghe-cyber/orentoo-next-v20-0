@@ -1,6 +1,6 @@
 {
     'name': 'Coefficient & Dynamic Pricing',
-    'version': '20.0.1.1.0',
+    'version': '20.0.1.2.0',
     'summary': 'Dynamic and degressive pricing for rental orders',
     'description': (
         'This module allows rental prices to use duration coefficients '
