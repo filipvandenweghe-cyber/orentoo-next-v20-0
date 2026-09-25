@@ -210,6 +210,9 @@ Applied across all modules; each change is commented at the call site.
   `pos.printer.epson_printer_ip` → `printer_ip` and `proxy_ip` is gone. Writing on
   `payment.transaction` needs `payment_safe_write=True` in the context, and
   `_post_process()` must be reached through `_post_process_with_lock()`.
+- **Website**: the default website record now belongs to `base` — the xmlid is
+  **`base.default_website`**; `website.default_website` is gone (a `ref=` on it raises
+  *External ID not found in the system* and aborts the whole data/demo file).
 - **Misc**: `ir.config_parameter.get_param/set_param` → typed `get_str/get_int/get_bool/
   get_float`; `ir.actions.report.report_file` removed; QWeb `t-call` takes named
   arguments (`title.translate="…"`, `url.f="…"`) instead of nested `t-set`.
