@@ -4,6 +4,17 @@ from odoo import api, fields, models
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
+    rental_on_option = fields.Boolean(
+        string='On Option',
+        copy=False,
+        help="Mark this quotation as holding its rental items 'on option' "
+             "until its Expiration date.  While on option (and not yet "
+             "confirmed), the held quantity is surfaced as 'on option by other "
+             "orders' in the availability pop-up / report of OTHER orders.  "
+             "The option's end date is the quotation Expiration "
+             "(validity_date).",
+    )
+
     @api.depends('partner_id', 'rental_start_date', 'rental_return_date')
     @api.depends_context('rental_avail_order_label', 'sale_show_partner_name')
     def _compute_display_name(self):

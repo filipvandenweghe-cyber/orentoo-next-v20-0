@@ -13,6 +13,11 @@
                         help="Show the 'Physical stock (right now)' section — total stock and its locations — in the rental availability pop-up. Off by default; handy for troubleshooting.">
                         <field name="rental_show_stock_locations"/>
                     </setting>
+                    <setting
+                        string="Warn about stock on option by other orders"
+                        help="Show 'on option by other orders' in the availability pop-up and turn the availability icon red when unconfirmed quotations (on option until their validity date) could make a line unfulfillable. Informational only.">
+                        <field name="rental_flag_options"/>
+                    </setting>
                 </block>
             </xpath>
         </field>

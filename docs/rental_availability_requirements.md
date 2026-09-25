@@ -350,3 +350,64 @@ returns.
 Re-renting hired-in gear past its return date (over-commitment signal), owner-agnostic
 physical base, multi-step reception chaining, effective-vs-declared return date — tracked in
 `docs/rental_purchase_requirements.md`.
+
+## 10. On option by other orders (awareness, informational)
+
+### 10.1 Problem
+A quotation can already hold stock before the client confirms — the order is **"on option"**
+until its `validity_date`. Those units may firm up, so a salesperson creating a *new* order
+should be warned, even though the option is only a **soft** hold.
+
+### 10.2 Definition
+On option is an **explicit opt-in**: the quotation carries a **`rental_on_option`** boolean
+("On option", shown next to the **Expiration** field on rental quotations). The option's end
+date is that **Expiration** (`validity_date`).
+
+`product._get_on_option_qty(from, to, ignored_order_id, warehouse_id)` = the peak concurrent
+quantity, over `[from, to]`, of **other** orders' rental lines where:
+- `is_rental`, product matches, `order.warehouse_id` matches;
+- `order.state in ('draft', 'sent')` (not yet confirmed);
+- **`order.rental_on_option` is True** (opt-in — an unflagged quotation never counts);
+- `order.validity_date` is empty or **≥ today** (option still alive; empty = indefinite);
+- `order_id != ignored_order_id` — the **whole current order is excluded**, so an order never
+  counts itself (even a draft order does not count its own option);
+- effective `[pickup, return]` overlaps the window.
+
+Computed with the **same step-function** (`_get_rented_quantities` + `_reserved_peak`) as the
+confirmed reserved term, so overlapping options are counted at their peak, never double-counted
+across time. Confirmed orders are excluded here (they already count under *Reserved by other
+orders*).
+
+### 10.3 It never changes committed availability
+`Available to this order` stays exactly `max(Total − Reserved(confirmed) − InRepair − transfers,
+0)`. On-option is purely additive display plus a derived worst case:
+```
+available_if_options_confirm = max(Available − OnOptionByOthers, 0)
+```
+
+### 10.4 Surfacing
+- Fields on `sale.order.line`: `rental_on_option_other`, `rental_on_option_until` (earliest
+  overlapping option's `validity_date`, ISO string), both from `_compute_rental_breakdown`.
+- Pop-up ("For this rental"): an **orange** line *On option by other orders (until <date>)* and
+  *Available if those options confirm*.
+- **Availability icon** turns **red — risk-based**: `demand > available_if_options_confirm`
+  (`demand = max(order demand, line qty)`). Because `available_if_options_confirm ≤ Available`,
+  this can only turn the icon red *earlier*, never hide a real shortage. Not noisy: no red when
+  there is ample stock.
+- **Availability report**:
+  - drill-down (`get_cell_detail`): adds `on_option` (scalar) and `option_orders` (list, with
+    each option's `until` date), rendered as an orange "On option by other orders (soft hold)"
+    table.
+  - matrix: an **"Include options (on option)"** checkbox (`include_options`, default off). Off →
+    cells show committed availability (unchanged). On → each cell's `available` becomes the worst
+    case `committed − on_option` (step-function built once per product/warehouse over the window,
+    peak read per column), and "Only show unavailability" then reflects that worst case. Capacity
+    is never changed.
+
+### 10.5 Toggle
+Company setting `rental_flag_options` (Inventory/Rental settings, default **on**) gates the whole
+feature (compute, pop-up lines, red icon). Off → behaves exactly as before.
+
+### 10.6 Not changed
+Committed `Available`, the reserved/repair/transfer terms, set availability, and the report
+matrix numbers are all untouched. Only display + the icon's red trigger change.

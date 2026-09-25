@@ -11,3 +11,12 @@ class ResCompany(models.Model):
              "its locations — in the rental availability pop-up.  Off by "
              "default to keep the pop-up light; handy for troubleshooting.",
     )
+    rental_flag_options = fields.Boolean(
+        string="Warn about stock on option by other orders",
+        default=True,
+        help="Show 'on option by other orders' in the availability pop-up and "
+             "turn the availability icon red when unconfirmed quotations "
+             "('on option' until their validity date) could make this line "
+             "unfulfillable.  Informational only — it never changes the "
+             "committed availability figure.",
+    )
