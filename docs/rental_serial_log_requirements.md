@@ -3,7 +3,7 @@
 
 | | |
 |---|---|
-| **Project** | Orentoo — Odoo 19.0 (Odoo.sh) |
+| **Project** | Orentoo — Odoo 20.0 (Odoo.sh) |
 | **Module** | rental_serial_log |
 | **Depends on** | sale_stock_renting (rental + stock), repair |
 | **Channel** | Backend / Inventory only — not visible in Sales/Website |
@@ -139,7 +139,7 @@ e.g. `1× RSL Crate [RSL-0001], 40× RSL Glas`. Stored as text on the delivered 
 |---|---|---|
 | lot_id | Many2one stock.lot | required, indexed, ondelete cascade |
 | product_id | Many2one product.product | related lot_id.product_id, stored |
-| event_type | Selection | delivered / returned / repair_start / repair_done |
+| event_type | Selection | delivered / returned / repair_start / repair_done / repair_override |
 | date | Datetime | default now, indexed |
 | sale_order_id | Many2one sale.order | delivered/returned |
 | partner_id | Many2one res.partner | client |

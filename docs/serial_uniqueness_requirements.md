@@ -1,6 +1,6 @@
 # Instance-wide Serial Number Uniqueness — Requirements & Design
 
-Module: **rental_serial_log** (from version `19.0.1.0.7`).
+Module: **rental_serial_log** (from version `19.0.1.0.7`; now on the 20.0 line).
 
 ## 1. Goal
 
@@ -50,7 +50,7 @@ NULL for everything that is not serial-tracked, so lots/batches are untouched.
    instance-wide (bypasses multi-company record rules) but returns existence
    only, so it never leaks another company's data.
 
-`@api.constrains` cannot list the dotted path `product_id.tracking` in Odoo 19,
+`@api.constrains` cannot list the dotted path `product_id.tracking` (Odoo ignores
 so a *product tracking change* is not caught by the Python constraint — but the
 stored key recomputes (its `@api.depends` includes `product_id.tracking`) and
 the DB index still blocks any resulting collision at flush.
@@ -62,7 +62,10 @@ Two conflict kinds, both computed on `btrim(name)`:
 
 Detection runs in three places, all raising a clear report **without mutating
 data**:
-- `migrations/19.0.1.0.7/pre-migration.py` — before the new model code loads
+- `migrations/19.0.1.0.7/pre-migration.py` — before the new model code loads.
+  **Odoo 20 note:** this directory is keyed to the 19.0 series, so on the 20.0 line it can
+  no longer fire. The live guards are now `post_init_hook` (install) and the `init()`
+  re-check before the unique index is created
   (SQL inlined, since model helpers don't exist on the old registry yet) and
   before `init()` builds the index.
 - `post_init_hook = _check_serial_duplicates` — fresh-install / seed data guard.
@@ -129,14 +132,16 @@ read-only reconnaissance — it changes no data.
 - `models/stock_quant.py` — physical on-hand single-location constraint.
 - `data/serial_duplicate_audit.xml` — admin audit server action + menu.
 - `hooks.py` + `__manifest__.py` (`post_init_hook`) — install guard. Module at
-  `19.0.1.0.9` (name uniqueness `…0.7`, on-hand block `…0.8`, audit `…0.9`).
-- `migrations/19.0.1.0.7/pre-migration.py` — upgrade hard-stop.
+  `20.0.1.0.10` (name uniqueness `…0.7`, on-hand block `…0.8`, audit `…0.9`,
+  rental-return serial control `…0.10`).
+- `migrations/19.0.1.0.7/pre-migration.py` — upgrade hard-stop **on the 19.0 line only**
+  (see §5: it cannot fire on 20.0; `post_init_hook` + `init()` remain).
 - `tests/test_serial_uniqueness.py` — see §7.
 
 ## 7. Test coverage
 
-Suites (all green): **`rental_serial_log` 27/27**, **`rental_scanning` (PPB
-serial/package) 20/20**.
+Suites (all green): **`rental_serial_log` 35 tests across three files**, **`rental_scanning`
+(PPB serial/package) 20/20**.
 
 Covered by `tests/test_serial_uniqueness.py`:
 - **Key normalization / serial-only** — `test_key_only_for_serial_and_trimmed`.

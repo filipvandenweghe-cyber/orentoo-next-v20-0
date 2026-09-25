@@ -1,13 +1,15 @@
 # Crew Availability, Planning & Work Declaration — Functional & Technical Analysis
-*Pre-implementation analysis (NO code yet) — Backend (HR/Resource/Project/Planning/Timesheet) + Portal + WhatsApp*
+*Pre-implementation analysis — Backend (HR/Resource/Project/Planning/Timesheet) + Portal + WhatsApp*
+
+> **Historical document.** `crew_planning` and `crew_portal` are implemented and installed, and the platform has since moved to Odoo 20. Section A's survey of the database ("the foundation is not installed", "custom code touches none of this domain") is no longer true, and several standard-source line references below have shifted. Where this document and the requirement docs disagree, the requirement docs and the code win.
 
 | | |
 |---|---|
-| **Project** | Orentoo — Odoo 19.0 (Odoo.sh) |
+| **Project** | Orentoo — Odoo 20.0 (Odoo.sh) |
 | **Scope** | Generic Crew Planning extension (availability, invitations, work declaration) |
 | **Core principle** | Customise the workflow **around** Odoo; standard objects stay the operational source of truth |
-| **Status** | Analysis approved in principle — revised (rev. 3); awaiting go-ahead before development |
-| **Date** | 2026-09-07 (rev. 3) |
+| **Status** | **Superseded — the modules were built.** Kept as design history; for the implemented behaviour see `crew_planning_requirements.md` and `crew_portal_requirements.md` |
+| **Date** | 2026-09-07 (rev. 3); Odoo 20 API notes added 2026-09-25 |
 
 > Terminology is neutral (**Crew Member / Crew / Crew Portal / Availability Request**), never
 > "freelancer". Every crew member is an `hr.employee`; a crew member may have **only portal
@@ -52,7 +54,7 @@ crew planning is a clean additive vertical. The only shared touch-points are `sa
 | SO → Project/Task | `product.service_tracking` + `_timesheet_service_generation()` on SO confirm (`sale_project/.../sale_order_line.py`) | Reuse |
 | Publish/notify shift | `planning.slot.action_send`/`_send_slot` (`planning/.../planning_slot.py:1683,2343`); portal token; **no accept step** (scheduling = confirmation) | Reuse — matches §12 |
 | WhatsApp | `whatsapp.template` on any model with a phone field + `mail.thread`; `whatsapp.composer` programmatic send | Reuse |
-| Portal | `portal.mixin` (access_url/token), `CustomerPortal`, `ir.rule` per-partner, `portal.wizard` to grant access | Reuse |
+| Portal | `portal.mixin` (access_url/token), `CustomerPortal`, `ir.access` per-partner (Odoo 20 merged `ir.model.access` + `ir.rule`), `portal.wizard` to grant access | Reuse |
 
 # B. Gap analysis (per requirement)
 
@@ -75,7 +77,7 @@ crew planning is a clean additive vertical. The only shared touch-points are `sa
 | §13–15 | Project→Task→Slot→Timesheet→SOL | Standard (reuse whole chain) |
 | §16 | Work Declaration layer → Timesheet (immutable after approval) | Custom (thin model) + standard timesheet write |
 | §17 | Crew Portal | Custom controllers/pages reusing standard data |
-| §18 | Portal security | Standard (`ir.rule` + controllers + tokens) |
+| §18 | Portal security | Standard (`ir.access` + controllers + tokens) |
 
 **Net:** ~70% standard/config; the custom part is the *workflow shell* (requests, invitations,
 availability knowledge log, work declaration, portal) — the "customise around Odoo, not the
@@ -156,15 +158,16 @@ Broad shared "Crew" `resource.calendar` (generous / 24×7 attendance) + per-reso
 `resource.calendar.leaves`. Positive availability = **absence** of a leave inside the broad
 attendance. Alternatives rejected (all investigated): *no calendar* → always available (wrong
 default); *empty-attendance calendar* → leaves only subtract and attendances are weekly-recurring
-so single-date availability is impossible; *`time_type='other'` leaves* do not add availability
+so single-date availability is impossible; *leaves* do not add availability
 where no attendance exists. Only **broad attendance + carve leaves** works with standard
 resource availability (`_leave_intervals_batch` already filters by `resource_id` and merges
 overlaps).
 
 The **Crew Availability Engine** — a single idempotent service
 `_apply_availability(resource, start, end, state, origin, refs)` — owns all leave
-create/split/merge: store **UTC**, compute in **resource.tz** (resource tz overrides calendar
-tz), handle **DST** `pytz` fold/gap explicitly, normalise overlaps to non-overlapping intervals
+create/split/merge: store **UTC**, compute in **resource.tz** — Odoo 20 removed
+`resource.calendar.tz`, so a calendar follows `res.company.tz` and the resource tz is the
+only per-person timezone. Handle **DST** `pytz` fold/gap explicitly, normalise overlaps to non-overlapping intervals
 before writing. It only ever writes standard `resource.calendar.leaves`; it computes no
 availability of its own. *Caveat:* a 24×7 base calendar makes
 `allocated_percentage` meaningless for utilisation reporting — acceptable for event crew
@@ -191,9 +194,9 @@ must be **actively kept rolling forward**, or an `explicit` crew member silently
 available once coverage runs out. This is **mandatory**, not an optional consistency cron.
 
 - **Config (per company / `ir.config_parameter`), all numbers configurable:**
-  - `crew.unavailability_horizon_months` (e.g. **12**) — how far ahead blanket coverage is
+  - `crew_planning.unavailability_horizon_months` (e.g. **12**) — how far ahead blanket coverage is
     guaranteed;
-  - `crew.availability_entry_horizon_months` (e.g. **6**) — separate *business rule* for how far
+  - `crew_planning.availability_entry_horizon_months` (e.g. **6**) — separate *business rule* for how far
     ahead a crew member may **enter** availability (§7 validity);
   - hard invariant **`unavailability_horizon ≥ availability_entry_horizon`** (validated). Beyond
     the entry horizon a crew member cannot have registered availability, yet blanket coverage
@@ -337,7 +340,7 @@ invitation.
   `planning.slot` glue, WhatsApp orchestration, KPIs.
   *Depends:* `planning`, `sale_project_forecast`, `sale_timesheet`, `hr_skills`, `hr_timesheet`,
   `whatsapp`, `resource`.
-- **`crew_portal`** (portal): controllers, pages, portal `ir.rule`/security, "report can't work".
+- **`crew_portal`** (portal): controllers, pages, portal `ir.access`/security, "report can't work".
   *Depends:* `crew_planning`, `portal`.
 - **`orentoo_crew`** (optional, thin): org-specific config, calendar seeding, wording, data —
   keeps `crew_planning`/`crew_portal` generic and reusable.

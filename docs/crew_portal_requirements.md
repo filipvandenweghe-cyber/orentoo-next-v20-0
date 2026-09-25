@@ -1,6 +1,6 @@
 # Crew Portal — Requirements (as built)
 
-Module: **`crew_portal`**. Depends: `crew_planning`, `portal`. Odoo **19.0**.
+Module: **`crew_portal`**. Depends: `crew_planning`, `portal`. Odoo **20.0**.
 
 Self-service for crew members (external or internal, without backend access).
 
@@ -12,11 +12,22 @@ Self-service for crew members (external or internal, without backend access).
 ---
 
 ## 1. Home cards
-- **R1.1** Three crew cards appear on the portal home **only for crew members**
+- **R1.1** Three crew cards are shown on the portal home **only to crew members**
   (gated by an `is_crew` employee linked to the user): **My Availability**,
-  **My Planning**, **My Hours**, each with a bundled icon and a live counter.
-- **R1.2** Counters: availability windows count · upcoming shifts count ·
-  shifts awaiting a declaration count.
+  **My Planning**, **My Hours**, each with a bundled icon and a counter.
+  *Odoo 20 mechanism:* each card is a **`portal.entry` data record**
+  (`data/portal_entry_data.xml`, `category = crew_category`, sequences 310/320/330);
+  the gate is `PortalEntry._filter_visible_portal_cards()`, overridden in
+  `models/portal_entry.py`. Note that Odoo 20 **renders every card in the HTML** and
+  merely hides the inapplicable ones with a CSS class — so "shown / not shown" is about
+  visibility, never about presence in the page source (tests must assert accordingly).
+- **R1.2** Counters: availability windows · upcoming shifts · shifts awaiting a
+  declaration. They are produced by the Odoo 20 controller hook
+  `_prepare_portal_counter_values(counter)`, which returns a
+  `(model, domain, access)` triple that the portal counts itself — the old
+  `_prepare_home_portal_values(counters)` hook no longer exists. Because
+  `/my/counters` counts with `limit=1` for non-alert categories, the value behaves as a
+  **0/1 visibility flag** rather than an exact total.
 - **R1.3** A planner can **hide standard portal cards** per crew member
   (sales/invoices/purchases/projects/tasks/timesheets/subscriptions/signatures).
   This is enforced by overriding the **`/my/counters`** route so the zeroing is
@@ -64,7 +75,10 @@ Self-service for crew members (external or internal, without backend access).
   to the user's tz and stored as naive UTC.
 
 ## 6. Testing notes
-Portal behaviour is primarily validated through the backing `crew_planning`
-model/logic tests (counter-hiding map, declaration lifecycle and state gating,
-self-unassign policy). The `/my/counters` override was additionally verified
-against the live routing map (it resolves to `CrewPortal.counters`).
+`crew_portal` has its own `HttpCase` suite, `tests/test_crew_portal.py`
+(`test_portal_availability_and_planning`, `test_remove_availability`,
+`test_home_cards_crew_gated`), on top of the backing `crew_planning` model/logic tests
+(counter-hiding map, declaration lifecycle and state gating, self-unassign policy).
+The `/my/counters` override was additionally verified against the live routing map
+(it resolves to `CrewPortal.counters`). The card-gating test asserts on
+`_filter_visible_portal_cards()` rather than on the HTML, for the reason given in R1.1.

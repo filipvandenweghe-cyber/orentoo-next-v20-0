@@ -1,7 +1,7 @@
 # Rental Return Serial Control + Repair Scan Warning — Requirements & Design
 
-Modules: **rental_serial_log** (server, from `19.0.1.0.10`) and **rental_scanning**
-(client, from `19.0.1.7.0`, now depends on `rental_serial_log`).
+Modules: **rental_serial_log** (server, from `20.0.1.0.10`) and **rental_scanning**
+(client, from `20.0.1.7.0`, now depends on `rental_serial_log`).
 
 ## 1. Goals (P1)
 1. A rental **return accepts only the correct existing serial** that was
@@ -70,17 +70,19 @@ in the check degrades to "no-repair" so it can never break scanning.
 - `models/stock_picking.py` *(modify)* — H2 pre-check in `button_validate`.
 - `models/stock_lot.py` *(modify)* — `_rsl_open_repairs` + `rsl_repair_warning` (H3).
 - `models/rental_serial_log.py` *(modify)* — `repair_override` event + `rsl_log_repair_override` (H4).
-- `models/__init__.py`, `__manifest__.py` — wire + version bump `→19.0.1.0.10`.
+- `models/__init__.py`, `__manifest__.py` — wire + version bump `→20.0.1.0.10`.
 - `tests/test_rental_return_serial.py` *(new)*.
 
 **rental_scanning**
-- `__manifest__.py` — depend on `rental_serial_log`, register asset, version `→19.0.1.7.0`.
+- `__manifest__.py` — depend on `rental_serial_log`, register asset, version `→20.0.1.7.0`.
 - `static/src/js/repair_warning.js` *(new)* — reusable helper.
 - `static/src/js/rental_scanning_barcode.js` *(modify)* — invoke on serial scans.
 
 ## 5. Tests (all green)
 `rental_serial_log` 35/35, `rental_scanning` 20/20; `rental_set`+`sale_flow`
-115/115 (no regression from the new `button_validate` pre-check).
+green on Odoo 20 (no regression from the `button_validate` pre-check). The combined
+`rental_set` + `sale_flow` suites now hold 128 test methods; the `rental_set_ui`
+browser test is tagged `-standard` and runs only where headless Chrome is available.
 - H1: delivered serial returnable; non-delivered blocked; resolver = pickedup.
 - H2: delivered ok; wrong serial blocked; unknown serial blocked **and no lot created**.
 - H3: draft repair not active; confirmed active; clean/unknown never warn; done not active.

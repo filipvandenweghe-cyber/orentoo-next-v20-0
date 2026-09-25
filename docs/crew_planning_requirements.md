@@ -1,7 +1,7 @@
 # Crew Planning — Requirements (as built)
 
 Module: **`crew_planning`** (backend) — companion portal: **`crew_portal`**
-(see `crew_portal_requirements.md`). Odoo **19.0**, Enterprise.
+(see `crew_portal_requirements.md`). Odoo **20.0**, Enterprise.
 
 > Guiding principle: **customise the workflow AROUND Odoo, keep the standard
 > objects as the source of truth.** Availability is standard
@@ -36,7 +36,7 @@ Depends: `hr`, `resource`, `planning`, `hr_skills`, `sale_project_forecast`,
 - **R2.3** For *explicit* crew a **mandatory rolling-horizon cron** keeps a
   blanket unavailability N months ahead (`unavailability_horizon_months`,
   default 12), so they never silently appear "free" past the last compiled day.
-  Coverage is anchored to the start of day.
+  Coverage is anchored to the start of day **minus one day** (`_coverage_start`).
 - **R2.4** Availability may be entered only within the **entry horizon**
   (`availability_entry_horizon_months`); the portal enforces it.
 
@@ -79,21 +79,25 @@ Depends: `hr`, `resource`, `planning`, `hr_skills`, `sale_project_forecast`,
   the offered sub-window). **Standard-mode** crew feed nothing (their calendar
   already expresses availability).
 - **R5.3** Every availability change is recorded append-only in
-  `crew.availability.log` (who/where/previous→new), used for audit only — it is
+  `crew.availability.log` (who / when / declared state / origin — there is no
+  previous→new pair), used for audit only — it is
   **never read by staffing**.
 
 ## 6. Scheduling (`planning.slot`)
 - **R6.1** §14 — **one operational shift represents one Task**: `task_id` is
-  added (native slots link only to project / SOL), with a "Schedule Shift"
+  **re-declared** on `planning.slot` to narrow its domain (Odoo 20 ships the field
+  natively via `project_forecast`/`sale_project_forecast`), with a "Schedule Shift"
   action from the task that opens a **prefilled** new slot (project, task, SOL,
   planned window, allocated hours); the planner picks the resource and saves.
 - **R6.2** A shift may link to the request it staffs (`crew_request_id`) for
   coverage/staffing KPIs.
 - **R6.3** "I can no longer work this shift" (from backend or portal): flags
   `crew_unavailable_reported` + reason and notifies the planner via the request
-  chatter. Whether it **also unassigns** the crew (making it an open shift)
-  honours the **standard Planning policy** (Settings → Planning → "Employee
-  Unavailabilities" == *unassign*) plus the same **deadline / past-shift**
+  chatter — **only when the shift is linked to a request** (`crew_request_id`); an
+  unlinked shift notifies nobody. Whether it **also unassigns** the crew (making it an
+  open shift) honours the **standard Planning policy** (Settings → Planning → *Shift
+  Changes*, `planning_employee_unavailabilities == 'unassign'`) plus the same
+  **deadline / past-shift**
   guards Odoo uses for native self-unassign (`_crew_may_self_unassign`). Under
   the *switch* policy the assignment is kept for the planner to handle.
 - **R6.4** Re-assigning a real resource to a shift **clears the stale
@@ -154,3 +158,28 @@ counter hiding, self-unassign policies (unassign / switch / past-deadline),
 reassignment flag clearing, schedule-from-task, and the full declaration
 lifecycle (write-once timesheet, immutability, reopen/recycle, reject→resubmit,
 reporting measures).
+
+## 12. Odoo 20 migration notes
+- **A shift can staff several resources.** `planning.slot.resource_id` / `employee_id`
+  became the many2many **`resource_ids` / `employee_ids`**. Consequences here:
+  - the "re-assignment clears the stale *cannot work* flag" rule (R6.4) is decided
+    **after** `super().write()`, on the *resulting* assignment — an m2m command list is
+    truthy even when it **clears** the assignment, so testing the vals alone would wrongly
+    clear the flag on unassign;
+  - unassigning is `resource_ids = [Command.clear()]`;
+  - the planner notification names **all** assigned employees.
+- **`crew.work.declaration` mirrors the first resource.** `employee_id` / `resource_id` are
+  now *computed stored* mirrors of `slot.employee_ids[:1]` / `slot.resource_ids[:1]`, not
+  related fields. A declaration therefore remains one-per-shift even on a multi-resource
+  shift — **open point:** decide the intended behaviour when a shift staffs several people.
+- **Working schedules**: `resource.calendar.tz` was removed — a calendar now follows its
+  company's timezone (`res.company.tz`). `resource.calendar.attendance` lost `name` and
+  computes `day_period`. `resource.calendar.leaves.time_type` became **`count_as`**
+  (`absence` / `working_time`); the engine writes `count_as='absence'`.
+- **Availability interval API**: `_work_intervals_batch(resources=…)` became
+  `resources_per_tz=resource._get_resources_per_tz()`.
+- **Config parameters** are read with the typed getters (`get_int`); `get_param` /
+  `set_param` no longer exist. The keys are `crew_planning.unavailability_horizon_months`
+  and `crew_planning.availability_entry_horizon_months`.
+- **Security**: `ir.model.access` + `ir.rule` merged into a single `ir.access`
+  (`security/ir.access.csv`).
