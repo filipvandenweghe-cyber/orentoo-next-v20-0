@@ -25,7 +25,7 @@
                                 <field name="note" optional="hide"/>
                                 <button name="action_open_transaction"
                                         type="object" string="Open"
-                                        icon="fa-external-link"
+                                        icon="open_in_new"
                                         title="Open transaction"/>
                             </list>
                         </field>

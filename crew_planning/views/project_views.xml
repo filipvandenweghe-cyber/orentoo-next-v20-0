@@ -11,7 +11,7 @@
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_crew_requests" type="object"
-                        class="oe_stat_button" icon="fa-calendar-check-o"
+                        class="oe_stat_button" icon="calendar_today"
                         groups="hr.group_hr_user,planning.group_planning_user"
                         invisible="crew_request_count == 0">
                     <field name="crew_request_count" widget="statinfo" string="Availability"/>
@@ -33,13 +33,13 @@
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_planning_slots" type="object"
-                        class="oe_stat_button" icon="fa-users"
+                        class="oe_stat_button" icon="group"
                         groups="hr.group_hr_user,planning.group_planning_user"
                         invisible="planning_slot_count == 0">
                     <field name="planning_slot_count" widget="statinfo" string="Shifts"/>
                 </button>
                 <button name="action_view_crew_requests" type="object"
-                        class="oe_stat_button" icon="fa-calendar-check-o"
+                        class="oe_stat_button" icon="calendar_today"
                         groups="hr.group_hr_user,planning.group_planning_user"
                         invisible="crew_request_count == 0">
                     <field name="crew_request_count" widget="statinfo" string="Availability"/>

@@ -34,8 +34,9 @@
                 t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
                 t-on-click.stop.prevent="this.onToggle">
                 <i
-                    class="fa fa-fw"
-                    t-att-class="this.isFolded ? 'fa-chevron-right text-muted' : 'fa-chevron-down text-primary'"></i>
+                    class="oi oi-fw"
+                    t-att-class="this.isFolded ? 'text-muted' : 'text-primary'"
+                    t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
             </button>
         </t>
         <t t-elif="this.isSetParent">
@@ -44,8 +45,9 @@
                     class="btn btn-link p-0 border-0 align-baseline"
                     t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
                     t-on-click.stop.prevent="this.onToggle">
-                <i class="fa fa-fw"
-                   t-att-class="this.isFolded ? 'fa-chevron-right text-muted' : 'fa-chevron-down text-primary'"/>
+                <i class="oi oi-fw"
+                   t-att-class="this.isFolded ? 'text-muted' : 'text-primary'"
+                   t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
             </button>
         </t>
         <t t-elif="this.isSetComponent">

@@ -1,6 +1,6 @@
 {
     'name': 'Rental Sets',
-    'version': '20.0.1.42.0',
+    'version': '20.0.1.43.0',
     'summary': 'Extend products with Rental Set capabilities',
     'description': (
         'Rental Sets are normal Odoo products that can expand into hidden '

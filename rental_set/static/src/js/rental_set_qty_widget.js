@@ -380,7 +380,7 @@ patch(QtyAtDatePopover.prototype, {
                 const warning = document.createElement('div');
                 warning.className = 'rental_set_extra_info text-danger small mt-1 mb-1';
                 warning.innerHTML =
-                    '<i class="fa fa-exclamation-triangle"></i> ' +
+                    '<i class="oi" data-icon="warning"></i> ' +
                     _t('Total order demand exceeds available stock.');
                 btnContainer.parentElement.insertBefore(warning, btnContainer);
             }

@@ -44,7 +44,7 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button type="object" name="action_view_invitations" class="oe_stat_button" icon="fa-envelope">
+                        <button type="object" name="action_view_invitations" class="oe_stat_button" icon="mail">
                             <field name="invited_count" widget="statinfo" string="Invited"/>
                         </button>
                     </div>
