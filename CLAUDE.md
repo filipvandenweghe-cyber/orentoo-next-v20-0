@@ -60,6 +60,21 @@ full rationale per feature. Read this first.
   - **In Repair** = `product._get_repair_unavailable_qty(...)` (open repairs over their
     window; 0 if `repair` not installed).
 - **Set availability** = `floor(min over leaf components of component_avail / qty-per-set)`.
+- **Custody (what the client still holds)** — one helper, never hand-rolled:
+  `sale.order.line._rental_custody_outstanding_qty()` = units that reached `rental_loc`
+  minus units that left it again. **Trap:** native `qty_returned` is incremented for *every*
+  done move leaving `rental_loc`, so it **already includes the lost/broken scraps** — adding
+  `_rental_scrapped_qty()` on top double-counts them (this hid a partially-returned line and
+  drove the commitment negative).
+- **Committed quantity** = `_rental_effective_reserved_qty()`: the ordered qty while a
+  delivery is still open, and **what actually shipped** once the outbound is closed short
+  (no back-order). The order line is never rewritten — deliver more/less/different, the
+  commercial line stands (that is why `auto_reconcile_delivered_qty` stays OFF).
+- **Release date** = `_rental_effective_return_date()`: released on the real return
+  operation **only when custody is settled**. With units still out it stays committed to at
+  least `now` (and the declared return date if later) — otherwise the effective window
+  inverts (return before pickup) and the line reserves *outside* its rental and nothing
+  *during* it.
 - Pop-up = two sections: *For this rental* (time-based) + *Physical stock (right now)*
   (a partition that sums to Total). No forecast rewrite; padding stays standard config.
 - **On option by other orders** (informational; never changes committed Available):
@@ -82,6 +97,14 @@ full rationale per feature. Read this first.
   Pending back-order → not expected until it ships.
 - A guard leaves the return untouched while a delivery is in progress (nothing shipped +
   outbound pending) so the return picking isn't cancelled mid-multi-step.
+- **Multi-leg returns**: expected back also subtracts what already came back (Odoo 20 links
+  the rental return to the delivery via `return_id`, which propagates to back-orders).
+- **The lost/broken wizard is CLOSING and only fires when nothing more is coming** — no open
+  return back-order (`_has_open_return_backorder`). While a back-order is open the client may
+  still bring the units, so the wizard stays away. When it does fire, every missing unit must
+  be allocated across **Fully Broken (charged) / Lost (charged) / Lost (not charged)** — all
+  three scrap, only the first two raise a fee. A partial allocation used to leave a unit
+  silently "expected back" with no operation to collect it: a permanent phantom reservation.
 - Root cause fixed: the old code summed pending outbound moves across every multi-step leg
   (4→8→12). Docs: `docs/sale_flow_return_demand_requirements.{md,docx}`.
 
@@ -107,10 +130,15 @@ full rationale per feature. Read this first.
 - Docs: `docs/serial_uniqueness_requirements.md`.
 
 ### Rental return serial control + repair scan warning (rental_serial_log / rental_scanning)
-- Returns accept **only serials delivered on the order** and **never create a new serial**.
-  Both hooks defer to one override point `sale.order.line._rsl_returnable_lot_ids()`
-  (**P1 = `pickedup_lot_ids`**; **P3** will widen to "all serials at the client" —
-  hooks/modal/tests untouched). Invariants always: serial must already exist and be returnable.
+- Returns **never create a new serial** and accept only *returnable* serials. Both hooks
+  defer to one override point `sale.order.line._rsl_returnable_lot_ids()`, now at **P3** =
+  `pickedup_lot_ids` **∪ every serial of that product the client currently holds**
+  (`stock.lot._rsl_lots_at_client(product, company)`, read from quants at `rental_loc`).
+  P3 was needed because a unit the *rental company* delivered without putting it on the
+  order has no SOL at all (`sale_flow_skip_invoice_logistics`) yet must still come back.
+  Detection is **location-based** (`_rsl_is_rental_return` no longer requires a
+  `sale_line_id`), and the H2 pre-check falls back to the at-client set for SOL-less lines.
+  Invariants unchanged: the serial must already exist and genuinely be out at the client.
   - **H1** `sale.order.line` `@api.constrains('returned_lot_ids')` = flow-agnostic backstop
     (picking `_action_done`, wizard, import, manual) — same transaction, so a bad return rolls back.
   - **H2** `stock.picking.button_validate` pre-check (`_rsl_check_return_serials`) on the leg

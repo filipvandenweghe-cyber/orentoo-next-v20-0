@@ -436,7 +436,40 @@ feature (compute, pop-up lines, red icon). Off → behaves exactly as before.
 Committed `Available`, the reserved/repair/transfer terms, set availability, and the report
 matrix numbers are all untouched. Only display + the icon's red trigger change.
 
-# 11. Odoo 20 migration notes
+# 11. Custody — what the client still holds (RAV-23…26)
+The reservation is grounded on **stock moves**, never on the order line. The order is the
+commercial record ("we agreed 10"); the moves are the custody record ("9 went out, 8 came
+back"). Deliver more, less or different without renegotiating the order.
+
+- **RAV-23 One custody helper.** `sale.order.line._rental_custody_outstanding_qty()` =
+  units that reached `rental_loc` − units that left it again. Never hand-roll this
+  arithmetic.
+  > ⚠ **Trap.** Native `qty_returned` is incremented by
+  > `sale_stock_renting.stock_move._action_done` for **every** done move leaving
+  > `rental_loc` — which includes the lost/broken **scraps**. So `qty_returned` already
+  > means "left the customer". Adding `_rental_scrapped_qty()` on top double-counts the
+  > written-off units; that bug hid a partially-returned line and could drive the
+  > commitment below what was really out.
+- **RAV-24 Committed quantity** (`_rental_effective_reserved_qty`): the ordered quantity
+  while any outbound move is still open (a back-order means the rest is still coming), and
+  **what actually shipped** once the outbound is closed short with no back-order. The order
+  line is never rewritten — which is why `auto_reconcile_delivered_qty` stays **off**.
+- **RAV-25 Release date** (`_rental_effective_return_date`): released on the real return
+  operation **only when custody is settled** (nothing left at the client). With units still
+  out and no further return scheduled, the line stays committed until at least `now`, and
+  until the declared return date when that is later.
+  > Releasing a *partially* returned line on its last completed return put the effective
+  > return **before** the effective pickup. The inverted window made the line reserve stock
+  > *outside* its rental and nothing *during* it — an over-booking hole (real case S02100:
+  > 9 shipped, 6 back, 2 written off, 1 still out).
+- **RAV-26 Over-delivery is reserved in full.** Because the base is what moved, shipping 11
+  on a 10-line commits 11 — the order-quantity base understated it by 1.
+
+Tests: `test_rental_return_operation_date.py` (partial return, inverted window,
+un-shipped remainder, scrap released exactly once, still-returnable order) and
+`test_rental_reservation_short_delivery.py`.
+
+# 12. Odoo 20 migration notes
 The engine's *business* definition is unchanged by the upgrade; these are the API-level
 facts a reader of the code needs.
 

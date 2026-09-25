@@ -1,6 +1,6 @@
 {
     'name': 'Sale Flow',
-    'version': '20.0.1.8.3',
+    'version': '20.0.1.9.0',
     'summary': 'Commercial baseline vs. logistics reality for sale/rental orders',
     'description': (
         'Sale Flow separates the confirmed commercial agreement (baseline '

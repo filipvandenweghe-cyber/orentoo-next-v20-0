@@ -305,3 +305,141 @@ class TestRentalReturnOperationDate(TransactionCase):
                                msg="Final ship leg must not change the total")
         self.assertAlmostEqual(avail(), 4.0, places=2,
                                msg="Final ship leg must not inflate availability")
+
+    # ── S02100: a PARTIAL return must not release the units still out ────
+    def _scrap_from_rental(self, order, line, qty):
+        """Write off `qty` units at the customer (lost/broken), as the
+        lost/broken wizard does: a done stock.move flagged is_scrap out of the
+        rental location."""
+        move = self.env['stock.move'].with_context(
+            skip_sale_flow_sync=True).create({
+                'product_id': self.prod.id,
+                'uom_id': self.prod.uom_id.id,
+                'product_uom_qty': qty,
+                'quantity': qty,
+                'is_scrap': True,
+                'location_id': self.company.rental_loc_id.id,
+                'location_dest_id': self.company.scrap_location_id.id,
+                'company_id': self.company.id,
+                'sale_line_id': line.id,
+            })
+        move._action_scrap()
+        return move
+
+    def _deliver_short_no_backorder(self, order, qty):
+        """Ship `qty` and cancel the backorder — the delivery is then closed
+        at less than ordered, and the remainder will never go out."""
+        picking = order.picking_ids.filtered(
+            lambda p: p.picking_type_code == 'outgoing'
+            and p.state not in ('done', 'cancel'))
+        picking.ensure_one()
+        picking.action_assign()
+        move = picking.move_ids.filtered(lambda m: m.product_id == self.prod)
+        move.move_line_ids[:1].quantity = qty
+        move.picked = True
+        res = picking.with_context(skip_lost_broken_check=True).button_validate()
+        if isinstance(res, dict) \
+                and res.get('res_model') == 'stock.backorder.confirmation':
+            self.env['stock.backorder.confirmation'].with_context(
+                res['context']).create({}).process_cancel_backorder()
+        return picking
+
+    def _return_short_no_backorder(self, order, qty):
+        """Receive `qty` back and cancel the backorder — the return is then
+        closed with units still at the customer."""
+        picking = order.picking_ids.filtered(
+            lambda p: p.picking_type_code == 'incoming'
+            and p.state not in ('done', 'cancel'))
+        picking.ensure_one()
+        picking.action_assign()
+        move = picking.move_ids.filtered(lambda m: m.product_id == self.prod)
+        move.move_line_ids[:1].quantity = qty
+        move.picked = True
+        res = picking.with_context(skip_lost_broken_check=True).button_validate()
+        if isinstance(res, dict) \
+                and res.get('res_model') == 'stock.backorder.confirmation':
+            self.env['stock.backorder.confirmation'].with_context(
+                res['context']).create({}).process_cancel_backorder()
+        return picking
+
+    def _partially_settled_order(self):
+        """9 out, 6 returned, 2 written off -> 1 unit still at the customer,
+        with the return picking closed and no backorder.  The rental window
+        itself is in the FUTURE (days 9-15), which is what made the effective
+        window invert."""
+        self._set_stock(10)
+        order = self._order(start_offset=9, days=6)
+        line = self._line(order, 10)
+        order.action_confirm()
+        self._deliver_short_no_backorder(order, 9)   # ship 9 of 10
+        self._return_short_no_backorder(order, 6)   # only 6 come back
+        self._scrap_from_rental(order, line, 2)   # 2 written off
+        return order, line
+
+    def test_partial_return_does_not_invert_the_effective_window(self):
+        """The line is only released on the return operation date when custody
+        is actually settled.  With 1 unit still out, releasing on the last
+        completed return put the effective return BEFORE the effective pickup,
+        so the line reserved outside its rental and nothing during it."""
+        order, line = self._partially_settled_order()
+        self.assertAlmostEqual(line._rental_custody_outstanding_qty(), 1.0, places=2)
+        self.assertLessEqual(
+            line._rental_effective_pickup_date(),
+            line._rental_effective_return_date(),
+            "effective return must never precede effective pickup")
+
+    def test_partial_return_keeps_the_outstanding_unit_reserved(self):
+        """The unit the customer still holds is unavailable to everyone else —
+        before, during and up to the declared return of the holding order."""
+        order, line = self._partially_settled_order()
+        for label, f_off, t_off in (("before the rental", 3, 4),
+                                    ("inside the rental", 11, 12),
+                                    ("late in the rental", 14, 15)):
+            self.assertAlmostEqual(
+                self._avail(f_off, t_off), 7.0, places=2,
+                msg=f"{label}: 8 owned - 1 still at the customer = 7 available")
+
+    def test_unshipped_remainder_is_released_without_touching_the_order(self):
+        """Shipping 9 of 10 with no backorder releases the 10th unit to other
+        orders, while the order line still says 10 (no renegotiation)."""
+        order, line = self._partially_settled_order()
+        self.assertAlmostEqual(
+            line.product_uom_qty, 10.0, places=2,
+            msg="the order must not be rewritten")
+        self.assertAlmostEqual(
+            line._rental_effective_reserved_qty(), 9.0, places=2,
+            msg="only what actually shipped stays committed")
+
+    def test_scrapped_units_are_released_exactly_once(self):
+        """Native qty_returned already counts the lost/broken scraps, so the
+        engine must not subtract them a second time (which drove the
+        commitment below what is really out)."""
+        order, line = self._partially_settled_order()
+        self.assertAlmostEqual(
+            line.qty_returned, 8.0, places=2,
+            msg="6 returned + 2 scrapped, per native accounting")
+        self.assertAlmostEqual(line._rental_custody_back_qty(), 8.0, places=2)
+        # 9 committed - 8 gone = 1 still out; availability = 8 owned - 1.
+        self.assertAlmostEqual(self._avail(11, 12), 7.0, places=2)
+
+    def test_partially_returned_order_is_still_returnable(self):
+        """The order must keep offering a return while a unit is out."""
+        order, line = self._partially_settled_order()
+        order.invalidate_recordset(['has_returnable_lines'])
+        self.assertTrue(
+            order.has_returnable_lines,
+            "1 unit still at the customer must keep the order returnable")
+
+    def test_fully_settled_order_releases_on_the_operation_date(self):
+        """Regression guard for S00705: when custody IS settled, the line is
+        still released on the actual return date, not the declared one."""
+        self._set_stock(10)
+        order = self._order(start_offset=9, days=6)
+        line = self._line(order, 4)
+        order.action_confirm()
+        self._deliver_full(order, 4)
+        self._return_full(order, 4)
+        self.assertAlmostEqual(line._rental_custody_outstanding_qty(), 0.0, places=2)
+        self.assertLess(line._rental_effective_return_date(), line.return_date,
+                        "settled early -> released on the operation date")
+        self.assertAlmostEqual(self._avail(11, 12), 10.0, places=2)

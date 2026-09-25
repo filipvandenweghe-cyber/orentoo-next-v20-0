@@ -3,9 +3,9 @@
 Modules: **rental_serial_log** (server, from `20.0.1.0.10`) and **rental_scanning**
 (client, from `20.0.1.7.0`, now depends on `rental_serial_log`).
 
-## 1. Goals (P1)
-1. A rental **return accepts only the correct existing serial** that was
-   delivered on that rental/order, and **never creates a new serial**.
+## 1. Goals (P3)
+1. A rental **return accepts only an existing serial that is genuinely out at
+   the client**, and **never creates a new serial**.
 2. A **reusable Repair warning** modal fires on any serial scan: non-blocking
    in business terms, but requires an explicit **Proceed Anyway** and writes an
    **audit** entry when overridden.
@@ -24,12 +24,31 @@ Modules: **rental_serial_log** (server, from `20.0.1.0.10`) and **rental_scannin
 
 ### 3.1 The returnable-serial resolver (single override point)
 `sale.order.line._rsl_returnable_lot_ids()` returns the serials that may be
-returned against the line. **P1 = `pickedup_lot_ids`** (exactly what was
-delivered). This is the one method later phases override:
-- **P3** will widen it to "every serial currently at that client" (on-hand in
-  `rental_loc` for the partner) **without touching any hook**.
+returned against the line.
+
+- **P1** (superseded) was `pickedup_lot_ids` — exactly what was delivered *on
+  that line*.
+- **P3** (current) is `pickedup_lot_ids` **∪ every serial of the same product
+  the client currently holds**, read from quants at `rental_loc` by
+  `stock.lot._rsl_lots_at_client(product, company)`.
+
+P3 was needed because the P1 set is empty for a unit the **rental company**
+delivered without putting it on the order: with
+`sale_flow_skip_invoice_logistics` enabled such a unit has no
+`sale.order.line` at all, yet it must still come back — and be validated when
+it does. It also stops rejecting a legitimate swap between two orders of the
+same customer.
+
+Both hooks still defer to this one method; widening it touched neither.
 Two invariants hold in every phase: the serial must **already exist** and must
 be in the returnable set.
+
+### 3.1b Recognising the return leg without a sale order line
+`stock.picking._rsl_is_rental_return()` keys on the **location** (a move out of
+`rental_loc` on a rental order), not on `sale_line_id.is_rental` — otherwise a
+company-delivered unit riding along on the return would skip validation
+entirely. The H2 pre-check mirrors that: for a move line with no
+`sale.order.line` it validates against the order-independent at-client set.
 
 ### 3.2 Return enforcement (two hooks, both defer to the resolver)
 - **H1 — `sale.order.line` `@api.constrains('returned_lot_ids')`**: every

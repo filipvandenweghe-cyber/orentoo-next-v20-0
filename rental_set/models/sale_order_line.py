@@ -486,24 +486,73 @@ class SaleOrderLine(models.Model):
         rental_loc = self.company_id.rental_loc_id
         if not rental_loc:
             return self.qty_delivered
-        # Delivery closed: what physically reached the rental location, minus
-        # units scrapped from it (lost/broken write-offs).  Scrapped units are
-        # gone, so they no longer tie up stock.  Returns to the warehouse are
-        # NOT subtracted here — the native qty_returned timing block handles
-        # those, so there is no double counting.
-        delivered_out = sum(
+        # Delivery closed: commit exactly what physically reached the rental
+        # location.  Units that have since LEFT it again — returned or
+        # scrapped — are released by the ``qty_returned`` timing block in
+        # ``_get_rented_quantities``.  Do NOT subtract the scraps here as
+        # well: native ``qty_returned`` already counts them (see the custody
+        # block comment), so doing both released every written-off unit twice
+        # and could drive the commitment negative.
+        return sum(
             m.quantity for m in outgoing
             if m.state == 'done' and m.location_dest_id == rental_loc
         )
-        return max(delivered_out - self._rental_scrapped_qty(), 0.0)
+
+    # ── custody at the customer (single source of truth) ────────────────────
+    #
+    # CAREFUL: native ``qty_returned`` is incremented by
+    # ``sale_stock_renting.stock_move._action_done`` for **every** done move
+    # leaving ``rental_loc`` — which includes the lost/broken **scrap** moves.
+    # So ``qty_returned`` already means "left the customer", returns AND
+    # write-offs.  Adding ``_rental_scrapped_qty()`` on top of it double-counts
+    # the written-off units.  Use ``_rental_custody_outstanding_qty()`` instead
+    # of hand-rolling the arithmetic.
+
+    def _rental_custody_out_qty(self):
+        """Units of this line that physically reached the at-customer location.
+
+        Multi-step-safe: only the final ship leg targets ``rental_loc``, so
+        summing legs cannot inflate it.
+        """
+        self.ensure_one()
+        rental_loc = self.company_id.rental_loc_id
+        if not rental_loc:
+            return 0.0
+        return sum(
+            m.quantity for m in self.move_ids
+            if m.state == 'done' and m.location_dest_id == rental_loc
+        )
+
+    def _rental_custody_back_qty(self):
+        """Units of this line that have left the at-customer location again —
+        returns to the warehouse **and** lost/broken scraps.
+
+        Deliberately the same set of moves native ``qty_returned`` counts.
+        """
+        self.ensure_one()
+        rental_loc = self.company_id.rental_loc_id
+        if not rental_loc:
+            return 0.0
+        return sum(
+            m.quantity for m in self.move_ids
+            if m.state == 'done' and m.location_id == rental_loc
+        )
+
+    def _rental_custody_outstanding_qty(self):
+        """Units of this line the customer still physically holds."""
+        self.ensure_one()
+        return max(
+            self._rental_custody_out_qty() - self._rental_custody_back_qty(),
+            0.0,
+        )
 
     def _rental_scrapped_qty(self):
         """Quantity of this line's units scrapped FROM the rental
         (at-customer) location — the lost/broken write-offs.
 
         Such units are gone: no longer out on rent and no longer expected
-        back.  Used both to release the reservation and to decide when an
-        order is fully returned (returned + scrapped == delivered).
+        back.  NOTE: they are also counted by native ``qty_returned`` (see the
+        block comment above), so never add the two together.
         """
         self.ensure_one()
         rental_loc = self.company_id.rental_loc_id
@@ -561,15 +610,26 @@ class SaleOrderLine(models.Model):
                 return op_date if op_date >= now else now
             return declared
         done = return_moves.filtered(lambda m: m.state == 'done')
-        if done:
-            # Units are physically back: release on the ACTUAL return operation
-            # date, even when it is earlier than the declared return_date (real
-            # case S00705 — returned a day before its declared date, so it must
-            # not stay reserved for a later window that the declared date would
-            # still overlap).
+        outstanding = self._rental_custody_outstanding_qty()
+        if done and outstanding <= 0:
+            # Everything is settled (returned and/or written off): release on
+            # the ACTUAL last return operation date, even when it is earlier
+            # than the declared return_date (real case S00705 — returned a day
+            # before its declared date, so it must not stay reserved for a
+            # later window that the declared date would still overlap).
             op_date = max(done.mapped('date'))
             if op_date:
                 return op_date
+        if outstanding > 0:
+            # A PARTIAL return with no further return operation scheduled.
+            # Releasing on the last completed return would hand back units the
+            # customer still holds, and — when the declared pickup is in the
+            # future — invert the effective window so the line reserves
+            # OUTSIDE its rental and nothing DURING it.  The outstanding units
+            # stay committed until at least now, and until the declared return
+            # date when that is later.
+            now = fields.Datetime.now()
+            return max(declared, now) if declared else now
         return declared
 
     def _rental_effective_pickup_date(self):

@@ -168,8 +168,19 @@ class TestRentalShortDeliveryRelease(TransactionCase):
         scrap._action_scrap()
 
         # Total −1 (written off) AND reservation −1 (no longer out): both move.
+        #
+        # The commitment base stays "what actually went out" (2) — the
+        # written-off unit is released through the custody accounting, because
+        # native qty_returned already counts a scrap out of the rental
+        # location.  Subtracting it from the base as well would release it
+        # twice, so assert the number other orders actually see.
         self.assertAlmostEqual(
-            line._rental_effective_reserved_qty(), 1.0, places=2,
+            line._rental_custody_outstanding_qty(), 1.0, places=2,
+            msg="1 of the 2 delivered units is written off")
+        self.assertAlmostEqual(
+            self.prod._get_unavailable_qty(
+                line.start_date, line.return_date, warehouse_id=self.wh.id),
+            1.0, places=2,
             msg="Scrapped unit must be released from the commitment")
         self.assertAlmostEqual(
             self.prod._rental_physical_total(

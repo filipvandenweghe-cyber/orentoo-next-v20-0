@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from odoo import fields
+from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 from odoo.tools import float_compare
 
@@ -502,6 +503,9 @@ class TestSaleFlow(TransactionCase):
             'returned_qty': 0,
             'missing_qty': 2,
             'lost_charged_qty': 1,
+            # The wizard is closing: the second unit is written off without
+            # billing, so the whole missing qty is accounted for.
+            'lost_uncharged_qty': 1,
             'broken_lost_unit_price': 0.0,
         })
         wizard.action_confirm()
@@ -1280,6 +1284,70 @@ class TestSaleFlow(TransactionCase):
         with self.assertRaises(Exception):
             wizard.action_confirm()
 
+    def test_28a_wizard_is_closing_partial_classification_refused(self):
+        """The wizard only opens when nothing is coming back, so it must not
+        accept a partial classification — the remainder would stay reserved
+        against the warehouse with no operation that could ever collect it
+        (the S02100 phantom)."""
+        order = self._create_rental_order([
+            {'product': self.rental_product, 'qty': 2, 'price': 10.0},
+        ])
+        out_picking = order.picking_ids.filtered(
+            lambda p: not p.return_id and p.state != 'done')[:1]
+        self._validate_picking_with_done_qty(
+            out_picking, {self.rental_product.id: 2})
+        fl = order.flow_line_ids.filtered(
+            lambda f: f.product_id == self.rental_product)[:1]
+
+        wizard = self.env['sale.flow.lost.broken.wizard'].create({
+            'picking_id': out_picking.id, 'sale_order_id': order.id})
+        self.env['sale.flow.lost.broken.wizard.line'].create({
+            'wizard_id': wizard.id, 'flow_line_id': fl.id,
+            'product_id': self.rental_product.id,
+            'delivered_qty': 2, 'returned_qty': 0,
+            'missing_qty': 2,
+            'lost_charged_qty': 1,          # only 1 of 2 classified
+            'broken_lost_unit_price': 10.0,
+        })
+        with self.assertRaises(UserError):
+            wizard.action_confirm()
+
+    def test_28b_wizard_stays_out_while_a_return_backorder_is_open(self):
+        """While a return back-order is still open the units are simply on
+        their way — the customer may bring them later — so the closing wizard
+        must not fire."""
+        svc = self.env['sale.flow.return.service']
+        order = self._create_rental_order([
+            {'product': self.rental_product, 'qty': 5, 'price': 10.0},
+        ])
+        out_picking = order.picking_ids.filtered(
+            lambda p: not p.return_id and p.state != 'done')[:1]
+        self._validate_picking_with_done_qty(
+            out_picking, {self.rental_product.id: 5})
+
+        return_picking = self._create_return_picking(
+            out_picking, {self.rental_product: 5})
+        for move in return_picking.move_ids:
+            if move.product_id == self.rental_product:
+                move.quantity = 3          # 3 back, 2 still out
+        res = return_picking.with_context(
+            skip_lost_broken_check=True).button_validate()
+        if isinstance(res, dict) \
+                and res.get('res_model') == 'stock.backorder.confirmation':
+            self.env['stock.backorder.confirmation'].with_context(
+                res['context']).create({}).process()
+
+        backorder = order.picking_ids.filtered(
+            lambda p: p.return_id and p.state not in ('done', 'cancel')
+            and p.id != return_picking.id)
+        self.assertTrue(backorder, "a return back-order must exist")
+        self.assertTrue(
+            svc._has_open_return_backorder(return_picking),
+            "the open back-order must be detected")
+        self.assertFalse(
+            svc._check_missing_returns(return_picking),
+            "the wizard must not open while units are still expected back")
+
     def test_28_lost_broken_reduces_backorder(self):
         """Lost/broken items reduce the backorder demand.
 
@@ -1359,25 +1427,24 @@ class TestSaleFlow(TransactionCase):
             'returned_qty': fl.returned_qty,
             'missing_qty': 2,
             'lost_charged_qty': 1,
+            # Closing classification: the second missing unit is written off
+            # without billing, so nothing is left silently expected back.
+            'lost_uncharged_qty': 1,
             'broken_lost_unit_price': 50.0,
         })
         wizard.action_confirm()
 
-        # Backorder demand must be reduced from 2 to 1
+        # Every classified unit is removed from the outstanding return demand,
+        # so the back-order no longer expects anything.
         bo_move.invalidate_recordset()
         backorder.invalidate_recordset()
         active_bo_moves = backorder.move_ids.filtered(
             lambda m: m.product_id == self.rental_product
             and m.state not in ('cancel',)
         )
-        if active_bo_moves:
-            self.assertEqual(
-                sum(active_bo_moves.mapped('product_uom_qty')), 1,
-                "Backorder demand must be reduced from 2 to 1 (1 lost)",
-            )
-        else:
-            # If move was cancelled and recreated, check total demand
-            self.fail("Backorder move should still exist with demand=1")
+        self.assertAlmostEqual(
+            sum(active_bo_moves.mapped('product_uom_qty')), 0, places=2,
+            msg="classifying all 2 missing units must clear the back-order demand")
 
         # Exactly 1 lost fee charge line must be created
         charge_fls = order.flow_line_ids.filtered(
@@ -1440,6 +1507,7 @@ class TestSaleFlow(TransactionCase):
             'returned_qty': 0,
             'missing_qty': 2,
             'lost_charged_qty': 1,
+            'lost_uncharged_qty': 1,
             'broken_lost_unit_price': 50.0,
         })
         wizard.action_confirm()

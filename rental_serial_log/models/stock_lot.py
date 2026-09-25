@@ -257,6 +257,33 @@ class StockLot(models.Model):
         """, (key, exclude_id or 0))
         return bool(self.env.cr.fetchone())
 
+    # ── serials currently at the client (P3) ────────────────────────────────
+
+    @api.model
+    def _rsl_lots_at_client(self, product, company):
+        """Serial lots of ``product`` physically on hand at the at-customer
+        rental location of ``company``.
+
+        This is the P3 definition of "returnable": a serial the client
+        actually holds may be returned, whichever order put it there.  It is
+        deliberately order-independent, so it also covers units the rental
+        company delivered without adding them to the order (no
+        ``sale.order.line`` exists for those — see
+        ``sale_flow_skip_invoice_logistics``).
+        """
+        if not product or product.tracking != 'serial':
+            return self.browse()
+        rental_loc = company.rental_loc_id if company else False
+        if not rental_loc:
+            return self.browse()
+        quants = self.env['stock.quant'].sudo().search([
+            ('product_id', '=', product.id),
+            ('location_id', 'child_of', rental_loc.id),
+            ('quantity', '>', 0),
+            ('lot_id', '!=', False),
+        ])
+        return quants.lot_id
+
     # ── active-repair detection (for the serial-scan warning) ────────────────
 
     # A serial is considered tied up when it has a repair that is committed
