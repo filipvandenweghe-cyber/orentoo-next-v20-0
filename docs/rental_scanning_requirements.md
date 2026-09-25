@@ -3,13 +3,13 @@
 
 | | |
 |---|---|
-| **Project** | Orentoo — Odoo 19.0 (Odoo.sh) |
+| **Project** | Orentoo — Odoo 20.0 (Odoo.sh) |
 | **Module (proposed)** | rental_scanning — home for all future barcode/scanning work |
-| **Depends on** | stock, stock_barcode (Enterprise); composes with rental_set |
+| **Depends on** | stock, stock_barcode (Enterprise), rental_set, rental_serial_log — all four are hard dependencies |
 | **Channel** | Backend / Inventory + Barcode only — NOT visible in Sales/Website |
 | **Languages** | Multilingual: English source + Dutch (nl) & French (fr) translations |
 | **Author** | Pro-Designed.com |
-| **Status** | Final analysis — approved; implementation not started (no code yet) |
+| **Status** | Implemented (models, wizards, views, Barcode-app patch, 20 tests); migrated to Odoo 20 |
 | **Date** | 2026-08-28 |
 
 # 1. Purpose & Business Context
@@ -245,7 +245,7 @@ The feature grew out of a real defect: scanning / moving a physical package on a
 
 *Note on existing coverage gaps (rationale for the new tests): today's rental_set suite has NO physical-package tests; its multi-step tests select the warehouse via search([],limit=1) (may miss the order's warehouse in a multi-warehouse DB) and contain silent early-returns that can pass without asserting. T-01..T-14 close these gaps.*
 # 10. Module Architecture
-- Single module rental_scanning, depending only on stock_barcode (+ composes with rental_set).
+- Single module rental_scanning, depending on stock, stock_barcode, rental_set and rental_serial_log (the last for the repair-scan warning).
 - Reuse native reusable package types; the module adds strict-fit rules, the split prompt, serial-scan resolution (with loose-serial fallback), the set barcode, and set composition.
 - Keep improvements that patch the SAME barcode JS method (e.g. _processPackage) in this one module and compose them in a single patch; always call super().
 # 11. Technical Findings (appendix, for implementers)
@@ -304,11 +304,14 @@ Answers "can I scan the package again at the follow-up warehouse step?"
 # 15. Addendum v8 — Phase 2: Barcode app integration
 Routes a scanned package in the Barcode app through the same server reconciliation as the backend, replacing the native line-per-quant overflow.
 ## 15.1 Implemented
-- OWL patch of BarcodePickingModel._processPackage: when a package WITH contents is scanned on a stock.picking, it calls stock.picking.rental_scanning_scan (strict-fit, idempotent, PPB-17) and reloads the client (trigger "refresh").
+- OWL patch of BarcodePickingModel._processBarcode AND _processPackage: when a package WITH contents is scanned on a stock.picking, it calls stock.picking.rental_scanning_scan (strict-fit, idempotent, PPB-17) and reloads the client (trigger "refresh").
 - Overflow -> a confirmation dialog ("Split & continue") re-calls with allow_split; server errors (not demanded / wrong location) show as notifications.
 - Defensive: empty packages, package types, put-in-pack, batches and any unexpected failure fall back to native behaviour, so the patch cannot break the Barcode app.
+- Set barcode in the Barcode app: _processBarcode parses the scan and, when the product is a rental set (is_rental_set, exposed through product.product._get_fields_stock_barcode), routes it to the same strict-fit apply path.
+- Repair warning on serial scans: a scanned serial tied to an ACTIVE repair (repair.order state == 'confirmed') raises a reusable confirmation modal (Proceed Anyway / Cancel); proceeding writes a repair_override event to rental.serial.log. The check only runs when the Barcode model is on stock.picking — not in inventory-adjustment or batch-transfer modes.
+
 ## 15.2 Deferred (follow-up, need UX/browser verification)
-- Scanning a SET barcode or a SERIAL directly in the Barcode app (these go through native product/lot handling, not _processPackage). They work today via the backend "Assign Prepared Package" action.
+- Scanning a SERIAL directly in the Barcode app (native lot handling). It works today via the backend "Assign Prepared Package" action. **Set-barcode scanning is no longer deferred — it is implemented** (see 15.1).
 - Scan-to-remove in the Barcode app: semantics overlap with idempotent re-scan; needs a UX decision. Backend "Remove Scanned Package" works.
 - Browser/tour verification required (cannot be run headless in this env).
 

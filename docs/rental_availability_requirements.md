@@ -3,14 +3,14 @@
 
 | | |
 |---|---|
-| **Project** | Orentoo — Odoo 19.0 (Odoo.sh) |
+| **Project** | Orentoo — Odoo 20.0 (Odoo.sh) |
 | **Where it lives** | Folded into **rental_set** (no new module) |
 | **Hard deps** | sale_stock_renting, sale_renting, sale_stock, stock (already in rental_set) |
 | **Optional dep** | **repair** — used only if installed; must not crash or show when absent |
 | **Channel** | Rental order line availability + its pop-up; set availability |
 | **Author** | Pro-Designed.com |
-| **Status** | Requirements v2 — for approval; no code yet |
-| **Date** | 2026-08-30 |
+| **Status** | Implemented (doc body at v10); migrated to Odoo 20 |
+| **Date** | 2026-09-25 (Odoo 20 migration) |
 
 # 0. Changes vs v1 (from review)
 1. **Repair is optional.** If the `repair` module is not installed: no repair deduction,
@@ -44,18 +44,20 @@
    transfer immediately. So a competing order that returns before our period holds
    nothing during it, and the full stock is available again — the native figure is
    correct, with **no forecast rewrite and no padding crutch needed** for this case.
-   Consequently **Available for Rent = Total stock − Reserved(others) − In Repair**
-   equals the native availability figure *exactly* (checked for both overlapping and
-   future periods). There is therefore no "Option A vs B" — it is one number.
-10. **Pop-up reordered to an accounting flow (v5).** `Total stock − Reserved by other
+   Consequently the figure equalled the native availability figure exactly at the time
+   this was written. **Superseded by §0.12/§0.13:** the formula gained the repair and
+   transfer terms and is deliberately *not* the native number any more — see §0.13 for
+   the current definition.
+10. **Pop-up reordered to an accounting flow (v5).** ~~`Total stock − Reserved by other
     orders − In Repair = Available for Rent`, then *of which reserved for this order*,
-    then *Located in: Input / QC / Stock*. "Total stock" is computed as
-    `Available + Reserved(others) + In Repair` so it is warehouse-scoped and always
-    reconciles exactly with the figure shown.
+    then *Located in: Input / QC / Stock*.~~ **Superseded by §0.12**, which dropped the
+    single netting flow in favour of two independent lenses (*For this rental* and
+    *Physical stock (right now)*). Kept for history.
 11. **Location list = CURRENT on-hand per location, summing to Total (v6→v7).** To keep
     "Total stock" a stable anchor, the location list partitions Total across physical
-    buckets: warehouse internal locations (Input/QC/Stock…), **At customer**, **In
-    repair**, and a small reconciling **Other / in transit** bucket. It uses **current
+    buckets: warehouse internal **and transit** locations (Input/QC/Stock…), **At
+    customer** and **In repair**. These sum to Total exactly — there is no separate
+    reconciling remainder bucket (transit is an ordinary location bucket). It uses **current
     physical quants** (always ≥ 0) — deliberately **not** a per-location forecast to
     pickup. Rationale (v7): forecasting per location blindly applied pending internal
     staging/pick moves (Stock→Packing Zone) and partial reservations, producing a
@@ -80,9 +82,12 @@
       exceed physically-free stock when units return within the window — correct, and
       why the two lenses are shown separately.
 
-13. **Availability formula replaced (v9).** "Available to this order" no longer uses the
-    old move-walk / own-demand add-back. It is now:
-    `Available = max(Total physical stock − Reserved by other orders − In Repair, 0)`,
+13. **Availability formula replaced (v9; extended in v10).** "Available to this order" no
+    longer uses the old move-walk / own-demand add-back. It is now:
+    `signed = Total physical stock − Reserved by other orders − In Repair − Transfer out + Transfer in`
+    `Available = max(signed, 0)` when `clamp=True` (the default; reporting passes
+    `clamp=False` to keep the signed figure). The **transfer terms** are the §9 addendum
+    (hired-in / relocation moves); the two below are the original v9 core,
     where *Reserved by other orders* is the native period-aware peak-concurrent demand of
     **other** confirmed rentals (excludes this line). Reason: the old code excluded
     **done** pickup moves, so once an order was (partially) picked it lost its own-demand
@@ -112,12 +117,13 @@ the same (now repair-aware) component availability, with own-demand handled corr
   start uses `virtual_available`. Other rentals are subtracted via
   `_get_unavailable_qty(..., ignored_soline_id=line.id, warehouse_id=...)`, which
   excludes **this line's** rental demand.
-- **rental_set already overrides this** with a custom forecast
-  (`_compute_forecast_availability`) that walks stock moves over the period and, for
-  confirmed orders, **adds back own outgoing demand** — then **caps at
-  `qty_available`** (`current_stock_original`). Because `qty_available` is already
-  reduced by the order's own reservation, **the cap can cancel the add-back** for
-  current-start orders → confirmed orders may under-count their own availability.
+- **rental_set overrides this.** *Historically* (pre-v9) the override walked stock moves
+  over the period, added back own outgoing demand for confirmed orders and then **capped
+  at `qty_available`**, so the cap could cancel the add-back and confirmed orders
+  under-counted their own availability. That mechanism was **removed in v9** (§0.13):
+  `_compute_forecast_availability` is now a thin delegation to
+  `product._rental_available_qty(...)`, and own demand is excluded up front via
+  `ignored_soline_id` — there is no move-walk, no add-back and no cap.
   **This is the double-count logic to verify (§3.3).**
 - **Warehouse scoping:** with `warehouse_id` context, `qty_available`/`virtual_available`
   cover the warehouse **view location** = **Input + Quality Control + Stock**. QC/Input
@@ -149,8 +155,10 @@ reception buffer.
 
 ## 3.3 Own-demand for confirmed orders (no double-count) — SHOW IT, don't hide it
 The requirement **still holds**: a confirmed order must see its **own** reserved units as
-available **to itself** (not subtracted twice). Today's code tries to solve this with a
-hidden add-back that is then negated by a cap at `qty_available` — opaque and buggy.
+available **to itself** (not subtracted twice). The code *at the time of writing* tried to
+solve this with a hidden add-back that was then negated by a cap at `qty_available` —
+opaque and buggy. **Both were removed in v9** (§0.13): the line is now excluded up front
+via `ignored_soline_id`.
 **Decision (the agreed solution):** make the reservation split **explicit in the pop-up**
 rather than hide a correction. The pop-up shows:
 - **Reserved by this order** — quantity this order has already reserved (its own pickup
@@ -184,8 +192,10 @@ period-aware reservation split (no separate "At Customer" line — see §0.8):
   (includes their units still out at customers); **not** available to this order (§3.3),
 - **In Repair** = open-repair qty (only if `repair` installed; shown as its own line
   because the unit still sits in a physical location and would otherwise be hidden),
-- **Pickable / Available to this order** = usable-stock on-hand − reserved-by-others −
-  in-repair (+ reserved-by-this-order counts as available to itself).
+- **Pickable / Available to this order** = **total physical stock** (warehouse
+  internal/transit on-hand **+ at-customer**) − reserved-by-others − in-repair
+  − transfer-out + transfer-in (+ reserved-by-this-order counts as available to itself).
+  See §0.13 for the authoritative formula.
 
 *Note:* "Reserved by …" here means the **period-aware rental commitment** (the same basis
 as `_get_unavailable_qty`), not merely current stock reservations — that is what lets it
@@ -195,7 +205,9 @@ correctly absorb units currently at a customer without a separate, period-blind 
 - **G1** Availability excludes units in open repair over the repair window — **only when
   `repair` is installed**, and never crashes when it isn't.
 - **G2** The pop-up shows a location-driven breakdown (incl. At Customer and, if present,
-  In Repair) and the net **Pickable** figure.
+  In Repair) and the net **Pickable** figure. The physical-breakdown section is gated by
+  the company flag `rental_show_stock_locations` (default OFF); the time-based section is
+  always shown.
 - **G3** Set availability is the limiting component's whole-set count, built on the same
   component availability.
 - **G4** No custom padding logic — standard preparation/padding config only.
@@ -213,16 +225,19 @@ correctly absorb units currently at a customer without a separate, period-blind 
 - **RAV-04** If `repair` is not installed: no deduction, no repair UI, **no error**.
 
 ## 5.2 Availability pop-up breakdown (RAV-05…07)
-- **RAV-05** Show, for the picking warehouse + period, an accounting flow:
-  **Total stock** − **Reserved by other orders** − **In Repair** (if repair installed)
-  = **Available for Rent**; then **of which reserved for this order**. Available for Rent
-  equals the native availability figure (§0.9). No "At Customer" line in this
-  *availability* section — those units are already inside the reserved figures (§0.8).
-- **RAV-14** Below it, a **physical partition by current on-hand** that sums to Total:
-  warehouse locations (Input/QC/Stock…), **At customer**, **In repair**, and a small
-  reconciling **Other / in transit** bucket (§0.11). Uses current quants (robust, ≥ 0) —
-  not a per-location pickup forecast (which produced phantom/negative buckets). Keeps
-  Total a stable anchor; period-awareness lives in "Available for Rent".
+- **RAV-05** Show, for the picking warehouse + period, the time-based lens *For this
+  rental*: **Available for Rent** with **Reserved by other orders**, **In Repair** (if
+  repair installed) and **of which reserved for this order**. Per §0.12 these are
+  **two independent lenses**, not one netting flow, and the figure is **not** the native
+  availability number (§0.13). No "At Customer" line in this *availability* section —
+  those units are already inside the reserved figures (§0.8).
+- **RAV-14** Below it, a **physical partition by current on-hand** that sums to Total
+  exactly: warehouse internal **and transit** locations (Input/QC/Stock…), **At
+  customer** and **In repair** (§0.11) — there is no reconciling remainder bucket. Uses
+  current quants (robust, ≥ 0) — not a per-location pickup forecast (which produced
+  phantom/negative buckets). Keeps Total a stable anchor; period-awareness lives in
+  "Available for Rent". **This whole section is gated by the company flag
+  `rental_show_stock_locations`, which defaults to OFF.**
 - **RAV-06** Repairs get an explicit line (only when repair installed).
 - **RAV-07** Read-only; adds no blocking behaviour.
 - **RAV-13** The **Reserved by this order** and **Reserved by other orders** lines are
@@ -235,8 +250,9 @@ correctly absorb units currently at a customer without a separate, period-blind 
   demand handled per §3.3.
 
 ## 5.4 Own-demand & guards (RAV-10…12)
-- **RAV-10** A confirmed order's own reserved units count as available to itself
-  (no double-count; the cap must not negate the add-back).
+- **RAV-10** A confirmed order's own reserved units count as available to itself (no
+  double-count). Since v9 this is achieved by excluding the line up front via
+  `ignored_soline_id` — there is no add-back and no cap to negate it.
 - **RAV-11** Padding/preparation time is standard config; this work adds none.
 - **RAV-12** Only rental orders (`is_rental_order`) and storable products are affected.
 
@@ -245,34 +261,42 @@ correctly absorb units currently at a customer without a separate, period-blind 
   overlapping `[from_date, to_date]` for a warehouse (and optional lot), implemented as
   `if 'repair.order' not in self.env: return 0.0` then a search on open repairs. No
   import of the repair module; pure registry check.
-- **Availability:** extend rental_set's `_compute_forecast_availability` /
-  `_compute_qty_at_date` to (a) subtract the repair helper and (b) fix the own-demand cap
-  (§3.3). Standalone and component lines share this figure.
+- **Availability:** a single engine, `product.product._rental_available_qty(...)`, applies
+  the §0.13 formula; `_compute_forecast_availability` and the component/report/kiosk paths
+  all delegate to it. (The v2 plan said "subtract the repair helper and fix the own-demand
+  cap" — the cap no longer exists, and repair is subtracted inside the engine rather than
+  in the SOL layer.) Standalone and component lines share this figure.
 - **Set availability:** `_compute_set_availability` reads the component figure and applies
   `floor(min(avail / qty_per_set))`.
 - **Pop-up:** extend the native `qty_at_date_widget` (OWL) + server data with the
   location-driven breakdown; repair line rendered only when repair is installed.
 
-# 7. Tests (reassessed — `rental_set/tests/test_rental_availability.py`)
-| # | Test | Verifies | Requirement |
-|---|---|---|---|
-| T-01 | test_open_repair_reduces_availability | open repair over the period lowers availability by product_qty | RAV-01 |
-| T-02 | test_done_repair_does_not_reduce | a `done` repair does not reduce availability | RAV-03 |
-| T-03 | test_repair_outside_period_ignored | repair window not overlapping the period → no effect | RAV-01 |
-| T-04 | test_serial_repair_removes_one_unit | repair on a serial removes exactly that unit | RAV-02 |
-| T-05 | test_confirmed_own_demand_not_double_counted | confirmed order sees its own reserved units as available (add-back not negated by the cap) | RAV-10, G5 |
-| T-06 | test_set_availability_limiting_component | set avail = floor(min component avail / qty-per-set) | RAV-08 |
-| T-07 | test_set_non_storable_limitless | non-storable components don't constrain the set | RAV-09 |
-| T-08 | test_breakdown_is_consistent | Pickable = usable on-hand − reserved-by-others − in-repair; no double-count of at-customer units | RAV-05 |
-| T-13 | test_at_customer_not_double_counted | a unit out at a customer for another order is reflected once (via reserved-by-others), and a future period it returns in time for is not reduced | §0.8 |
-| T-09 | test_repair_not_installed_no_crash | with repair absent (simulated), availability computes and no repair UI/deduction | RAV-04 |
-| T-10 | test_non_rental_untouched | non-rental sale line availability unchanged | RAV-12 |
-| T-11 | test_existing_set_availability_regression | prior rental_set set-availability tests still pass (no regression) | G3 |
-| T-12 | test_reservation_split_shown | pop-up exposes Reserved-by-this-order and Reserved-by-other-orders with correct values | RAV-13 |
+# 7. Tests (`rental_set/tests/`)
+The availability suite now spans eight files. Core engine tests live in
+`test_rental_availability.py`; the others cover the batch/report engine, the warehouse
+lens, on-option, operation-date grounding and the hired-in transfer terms.
 
-*Note:* existing rental_set availability tests will be **re-run and adjusted** where the
-figure legitimately changes (repair deduction, cap fix); any that encoded the old capped
-behaviour will be updated to the corrected expectation, documented in the commit.
+| # | Test (`test_rental_availability.py`) | Verifies | Requirement |
+|---|---|---|---|
+| T-01 | test_01_open_repair_reduces_availability | open repair over the period lowers availability by product_qty | RAV-01 |
+| T-02 | test_02_done_repair_does_not_reduce | a `done` repair does not reduce availability | RAV-03 |
+| T-03 | test_03_repair_outside_period_ignored | repair window not overlapping the period → no effect | RAV-01 |
+| T-04 | test_04_serial_repair_removes_one_unit | repair on a serial removes exactly that unit | RAV-02 |
+| T-05 | test_05_confirmed_own_demand_not_double_counted | a confirmed order never subtracts its own units from itself (`ignored_soline_id`) | RAV-10, G5 |
+| T-06 | test_06_set_availability_limiting_component | set avail = floor(min component avail / qty-per-set) | RAV-08 |
+| T-07 | test_07_set_non_storable_limitless | non-storable components don't constrain the set | RAV-09 |
+| T-08 | test_08_breakdown_is_consistent | the pop-up buckets are consistent and sum to Total | RAV-05 |
+| T-09 | test_09_repair_helper_graceful | the repair helper returns 0.0 when there is no open repair | RAV-04 |
+| T-10 | test_10_non_rental_untouched | non-rental sale line availability unchanged | RAV-12 |
+| T-12 | test_12_reservation_split_shown | pop-up exposes Reserved-by-this-order and Reserved-by-other-orders | RAV-13 |
+| T-13 | test_13_other_order_returning_in_time_not_counted | a unit out at a customer that returns in time does not reduce a later period | §0.8 |
+| T-14 | test_14_competing_orders_share_shortfall | two orders competing for the same stock each see the shortfall | RAV-10 |
+
+Companion suites: `test_rental_availability_batch.py` (batch engine ≡ scalar engine,
+`clamp`), `test_rental_availability_perf.py`, `test_rental_availability_warehouse.py`
+("availability elsewhere"), `test_rental_on_option.py` (§10),
+`test_rental_reservation_short_delivery.py`, `test_rental_return_operation_date.py`
+(operation-date grounding) and `test_rental_transfer_grounding.py` (§9 transfer terms).
 
 # 8. Out of Scope / Deferred
 - Rewriting the native forecast to a usable-location min-over-period engine (kept native).
@@ -411,3 +435,27 @@ feature (compute, pop-up lines, red icon). Off → behaves exactly as before.
 ### 10.6 Not changed
 Committed `Available`, the reserved/repair/transfer terms, set availability, and the report
 matrix numbers are all untouched. Only display + the icon's red trigger change.
+
+# 11. Odoo 20 migration notes
+The engine's *business* definition is unchanged by the upgrade; these are the API-level
+facts a reader of the code needs.
+
+- **Rentable gate** is `product.rent_periodicity` (selection `hours/days/nights/weeks`,
+  falsy = not rentable). The old boolean `rent_ok` no longer exists.
+- **Repair state**: an *open* repair is `state not in ('done','cancel')`; the `under_repair`
+  state was dropped, so "committed but unfinished" is `confirmed` (§3.2, RAV-01…04).
+- **Scrap at the customer** (`_rental_scrapped_qty`) reads `stock.move.is_scrap`; the
+  `stock.move.scrap_id` field and the `stock.scrap` model are gone.
+- **Rounding**: `uom.uom.rounding` was removed. The physical partition compares with
+  `uom.compare(...)`, which uses the *Product Unit* decimal precision.
+- **UoM field on moves**: `stock.move.product_uom` → `uom_id` (used when building set
+  header moves).
+- **Pop-up widget (Owl 3)**: `calcData` is a **computed signal fed by the return value of
+  `initCalcData()`** — an override must return the object, never mutate `this.calcData`,
+  and the template reads `this.calcData()`. Component props are declared with
+  `props = useProps({...})`; a `static props` throws at render time.
+- **Availability report (Owl 3)**: the matrix uses `proxy()` for state (not `useState`) and
+  `usePlugin(ActionPlugin)` for the action service.
+- **SO form view priority**: rental_set's inherited `sale.order` form runs at priority 25 so
+  it applies *after* `sale_stock` (priority 20) has replaced `simple_qty_at_date_widget`
+  with `qty_at_date_widget` — the anchor the availability widget attaches to.

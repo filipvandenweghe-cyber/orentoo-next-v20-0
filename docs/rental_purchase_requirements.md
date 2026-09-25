@@ -3,7 +3,7 @@
 
 | | |
 |---|---|
-| **Project** | Orentoo — Odoo 19.0 (Odoo.sh) |
+| **Project** | Orentoo — Odoo 20.0 (Odoo.sh) |
 | **Module** | `rental_purchase` (core) |
 | **Depends** | `purchase_stock`, `stock_account` |
 | **Soft integration** | `rental_set` (availability) — no hard dependency, gated on field existence |
@@ -27,7 +27,7 @@ The architectural objective:
 
 This module covers the **external-supplier** flow end to end. The intercompany variant
 (supplier = another company in the same database ⇒ a genuine counterpart **Rental Sales
-Order**) is a **separate module** `rental_purchase_intercompany` (see §12, deferred).
+Order**) is a **separate module** `rental_purchase_intercompany` (see §16, deferred).
 
 # 2. Architecture
 
@@ -96,7 +96,7 @@ Orders remain completely unaffected.
   - 3-step (`pick_pack_ship`): `Stock → Packing → Output → Supplier`
   Final destination is always the **supplier/vendor location**, never the customer location.
 - **RP-31** — The chain root is chained (`move_orig_ids`, `make_to_order`) onto the **receipt
-  move(s)**. This is the only reservation path in Odoo 19 that **preserves the owner**, so
+  move(s)**. This is the only reservation path in Odoo 20 that **preserves the owner**, so
   the return can *only ever* reserve the **hired-in supplier-owned units it received** — never
   unrelated company-owned stock (the classic "20 own chairs must not be grabbed" case).
 - **RP-32** — Multi-step returns chain hop-to-hop; only the final supplier-bound hop is a
@@ -146,6 +146,10 @@ logic unchanged):
 - **RP-60 (supply, operational)** — Rental Purchase supply is **credited operationally**
   from its **arrival date** (= rental start), regardless of the receipt picking type's
   `rental_incoming_policy`. It is trusted because it is paired with a scheduled return.
+  **Caveat (see §16):** a receipt type set to `rental_incoming_policy = 'ignore'`
+  short-circuits *before* the Rental-Purchase test, so the hired-in supply is then **not**
+  credited while its paired return is still counted as a departure — a net phantom
+  subtraction. "Regardless of the policy" holds for `projected` and `operational`.
 - **RP-61 (return, departure)** — The supplier return is counted as a **departure** from its
   **scheduled date**, even while still `waiting` on the receipt.
 - **RP-62 (net effect)** — Because arrival and departure are credited together, availability
@@ -158,7 +162,7 @@ logic unchanged):
 
 *(See the addendum in `docs/rental_availability_requirements.md` for the exact terms.)*
 
-# 10. Cancellation (§21)
+# 10. Cancellation
 
 - **RP-70 (before receipt)** — Cancelling a Rental Purchase with nothing received cancels the
   open return chain too (standard-safe).
@@ -171,8 +175,8 @@ logic unchanged):
 
 - **RP-80** — Explicit relational links (§3): return move → PO (`rental_purchase_order_id`),
   return picking → PO (`rental_purchase_return_order_id`), plus native `purchase_line_id` on
-  the receipt moves. The return chain uses a dedicated `stock.reference` (v19's replacement
-  for the procurement group).
+  the receipt moves. The return chain uses a dedicated `stock.reference` (the replacement
+  for the procurement group; still present in Odoo 20).
 
 # 12. PDF / UX
 

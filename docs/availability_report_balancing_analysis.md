@@ -1,7 +1,7 @@
 # Availability Report & Rental Stock Balancing — Analysis
 
-**Project:** Orentoo — Odoo 19.0 on Odoo.sh
-**Scope of this document:** Analysis only. No code was written or changed to produce it.
+**Project:** Orentoo — Odoo 20.0 on Odoo.sh
+**Scope of this document:** Analysis only *at the time of writing*. **The report has since been implemented** — see `rental_set/models/rental_availability_report.py`, `static/src/js/availability_matrix.{js,xml}` and `views/rental_availability_report_views.xml`. Read the recommendations below as design history; where they differ from the shipped code, the code wins (notable: the `clamp` kwarg and the batch-reuse rule were implemented; *Projected Availability* and `include_projected` were not).
 **Purpose:** Feed a functional analysis (for review by ChatGPT and the team) of a new
 **Availability Report** and later **Rental Stock Balancing** feature, built strictly on top of
 the existing (canonical) Orentoo availability engine.
@@ -243,7 +243,7 @@ Requires the **signed** (unclamped) Available to reach 110 % / red — see §30.
 **Strictly required: essentially no.** The report can be built almost entirely as a new
 reporting layer calling existing methods. **One minimal, backward-compatible change is strongly
 recommended** because the brief mandates negative availability and >100 % utilisation, and
-`_rental_available_qty` currently clamps at `max(…, 0)`:
+`_rental_available_qty` clamped at `max(…, 0)`. **Implemented:** the `clamp=True` kwarg below now exists (`product_product.py`), with `test_clamp_default_unchanged` guarding the default:
 
 - **Minimum concrete change:** add an optional `clamp=True` kwarg to `_rental_available_qty`
   (and pass it through). `clamp=True` preserves *every* existing caller byte-for-byte; the
@@ -303,11 +303,12 @@ orchestrates this reuse; it must not re-derive the formula, only slice pre-built
 ### 34. OWL / client action
 
 A new `ir.actions.client` (tag e.g. `rental_availability_matrix`) + `menuitem` under
-`sale_renting.rental_menu_root` (follow `multi_channel_rental_flow/views/menu.xml`). A root OWL
-`Component` with `useState`, `useService("orm")`, calling `get_availability_matrix` on load and
-on filter/nav change. Matches the project's OWL conventions (the pop-up widget uses
-`usePopover`, `useService("orm")`, `onWillRender`; register `.xml` before `.js` in the
-manifest). A dynamic client action is right because the number of time columns is dynamic.
+`sale_renting.menu_rental_reporting` (as shipped). A root OWL
+`Component` with `proxy()` state, `useService("orm")`, calling `get_availability_matrix` on load
+and on filter/nav change. Matches the project's OWL conventions (the pop-up widget uses
+`usePopover`, `useService("orm")` and a `computed` `calcData`; register `.xml` before `.js` in
+the manifest). *Odoo 20 / Owl 3: `useState` became `proxy()`, and `onWillRender` — still used by
+the two list renderers — is imported from `@web/owl2/utils`.* A dynamic client action is right because the number of time columns is dynamic.
 Filters (categories/products/companies/warehouses/start/interval/display-mode) as OWL controls;
 category selection expands to products server-side (recursive `child_of` on `categ_id`),
 unioned + deduped with explicitly selected products.
