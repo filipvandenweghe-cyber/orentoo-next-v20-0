@@ -92,12 +92,13 @@ class SaleOrder(models.Model):
             )
             order.has_pickable_lines = any(
                 sol.qty_delivered < sol.product_uom_qty for sol in lines)
-            # (3) delivered − returned − scrapped(lost/broken) still > 0
-            #     means units are genuinely still out at the customer.
+            # (3) Units genuinely still out at the customer.  Read it from
+            #     custody (what reached rental_loc minus what left it again);
+            #     native qty_returned ALREADY counts the lost/broken scraps,
+            #     so adding _rental_scrapped_qty() on top double-counted them
+            #     and hid a partially-returned line.
             order.has_returnable_lines = any(
-                sol.qty_returned + sol._rental_scrapped_qty()
-                < sol.qty_delivered
-                for sol in lines)
+                sol._rental_custody_outstanding_qty() > 0 for sol in lines)
 
             # (2) Pickup is driven by the customer-facing OUTGOING delivery
             #     only.  Internal steps are ignored — both outbound Pick/Pack

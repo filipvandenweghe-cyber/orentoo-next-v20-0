@@ -87,6 +87,17 @@ received, the still‑open leg keeps re‑demanding the full delivered quantity.
   from the return demand **by the wizard itself**. The scrap it creates runs under
   `skip_sale_flow_sync=True` so this reconciliation does not also reduce the demand — the
   two paths must never both subtract the same unit.
+- **SFR-10** The lost/broken wizard fires **only when nothing more is coming back** — i.e.
+  the return has no open back-order (`_has_open_return_backorder`). Two situations reach
+  that state: a return validated without a back-order, and a return back-order that is
+  later **cancelled** (R22). While a back-order is open the client may still bring the
+  units, so the wizard stays out of the way and the return demand is left alone.
+- **SFR-11** When it does fire the classification is **closing**: every missing unit must be
+  allocated across *Fully Broken (charged)* / *Lost (charged)* / *Lost (not charged)*. All
+  three scrap the unit from the rental location; only the first two raise a fee line. A
+  partial allocation is refused — the remainder would otherwise stay "expected back" from a
+  customer that no operation will ever collect from, i.e. a permanent phantom reservation
+  against the warehouse (real case S02100).
 
 # 6. Interaction with availability (rental_set)
 Consistent single trigger — **"out to the customer"**: crossing into the customer/rental

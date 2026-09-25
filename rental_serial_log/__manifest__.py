@@ -1,6 +1,6 @@
 {
     'name': 'Rental Serial Log',
-    'version': '20.0.1.0.10',
+    'version': '20.0.1.1.0',
     'summary': 'Per-serial rental traceability: delivered / returned / repaired',
     'description': (
         'A persisted usage log per serial-tracked lot.  Records, at rental '

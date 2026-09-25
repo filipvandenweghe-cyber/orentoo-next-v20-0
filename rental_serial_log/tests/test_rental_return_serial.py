@@ -163,3 +163,81 @@ class TestRentalReturnSerial(TransactionCase):
         self.assertEqual(self.Log.search_count([
             ('lot_id', '=', self.lotA.id),
             ('event_type', '=', 'repair_override')]), 1)
+
+    # ── P3: "returnable" = every serial the client actually holds ────────
+    def _put_at_client(self, lot):
+        """Place one unit of `lot` on hand at the at-customer location."""
+        self.env['stock.quant'].with_context(inventory_mode=True).create({
+            'product_id': self.crate.id,
+            'location_id': self.rloc.id,
+            'lot_id': lot.id,
+            'inventory_quantity': 1,
+        }).action_apply_inventory()
+
+    def test_p3_serial_at_client_is_returnable_without_being_picked_up(self):
+        """A unit the rental company delivered without putting it on the order
+        has no picked-up link, but the client holds it — so it must be
+        returnable, and the hooks must accept it."""
+        order = self._rental_order()
+        sol = order.order_line[:1]
+        self._put_at_client(self.lotB)          # at the client, never "picked up"
+        self.assertNotIn(self.lotB, sol.pickedup_lot_ids)
+        self.assertIn(
+            self.lotB, sol._rsl_returnable_lot_ids(),
+            "P3: a serial the client holds is returnable")
+        # H1 (the constraint) must accept it.
+        sol.returned_lot_ids = [(6, 0, self.lotB.ids)]
+        self.assertIn(self.lotB, sol.returned_lot_ids)
+
+    def test_p3_serial_not_at_client_is_still_refused(self):
+        """Widening to P3 must not weaken the guarantee: a serial that is
+        neither picked up on the line nor at the client stays refused."""
+        order = self._rental_order()
+        sol = order.order_line[:1]
+        self.assertNotIn(self.lotB, sol._rsl_returnable_lot_ids())
+        with self.assertRaises(ValidationError):
+            sol.returned_lot_ids = [(6, 0, self.lotB.ids)]
+
+    def test_p3_lots_at_client_helper_is_order_independent(self):
+        """The helper answers from stock, so it works with no order at all —
+        that is what makes the SOL-less (company-decided) delivery case work."""
+        Lot = self.env['stock.lot']
+        self.assertFalse(Lot._rsl_lots_at_client(self.crate, self.company))
+        self._put_at_client(self.lotA)
+        self.assertEqual(
+            Lot._rsl_lots_at_client(self.crate, self.company), self.lotA)
+
+    def test_p3_company_delivered_serial_is_checked_on_the_return(self):
+        """A rental return also carrying a move the company added WITHOUT a
+        sale line (``sale_flow_skip_invoice_logistics``): the extra serial used
+        to skip validation entirely.  It must now be checked against the
+        serials the client actually holds."""
+        order = self._rental_order()
+        sol = order.order_line[:1]
+        sol.pickedup_lot_ids = [(6, 0, [self.lotA.id])]
+        # A normal return leg for the ordered serial — this is what gives the
+        # picking its sale_id.
+        pick = self._return_picking(order, lot=self.lotA)
+        self.assertTrue(pick._rsl_is_rental_return())
+
+        # Ride an extra, sale-line-less move along for a serial the client
+        # does NOT hold: it must be refused.
+        extra = self.env['stock.move'].create({
+            'product_id': self.crate.id, 'product_uom_qty': 1,
+            'uom_id': self.crate.uom_id.id, 'picking_id': pick.id,
+            'location_id': self.rloc.id, 'location_dest_id': self.stock.id,
+            # deliberately NO sale_line_id
+        })
+        self.env['stock.move.line'].create({
+            'move_id': extra.id, 'picking_id': pick.id,
+            'product_id': self.crate.id, 'quantity': 1,
+            'location_id': self.rloc.id, 'location_dest_id': self.stock.id,
+            'lot_id': self.lotB.id,
+        })
+        with self.assertRaises(UserError):
+            pick._rsl_check_return_serials()
+
+        # Once the client really holds it, the same return validates.
+        self._put_at_client(self.lotB)
+        pick.invalidate_recordset()
+        pick._rsl_check_return_serials()

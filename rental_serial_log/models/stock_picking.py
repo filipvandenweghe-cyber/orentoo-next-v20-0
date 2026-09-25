@@ -24,7 +24,13 @@ class StockPicking(models.Model):
 
     def _rsl_is_rental_return(self):
         """True for the customer-facing return leg (out of the at-customer
-        rental location) of a rental order."""
+        rental location) of a rental order.
+
+        Recognised by **location**, not by the sale order line: a unit the
+        rental company delivered without putting it on the order has no
+        ``sale.order.line`` at all (``sale_flow_skip_invoice_logistics``), and
+        its return must still be validated.
+        """
         self.ensure_one()
         order = self.sale_id
         if not order or not getattr(order, 'is_rental_order', False):
@@ -34,7 +40,7 @@ class StockPicking(models.Model):
             return False
         return any(
             m.location_id == rloc for m in self.move_ids
-            if m.sale_line_id and m.sale_line_id.is_rental)
+            if m.state != 'cancel')
 
     def _rsl_resolve_serial(self, name):
         """Resolve an existing serial by its normalized name (P1 guarantees
@@ -57,7 +63,7 @@ class StockPicking(models.Model):
             not_existing, not_returnable = [], []
             for line in picking.move_line_ids:
                 sol = line.move_id.sale_line_id
-                if not sol or not sol.is_rental:
+                if sol and not sol.is_rental:
                     continue
                 if line.product_id.tracking != 'serial' or line.quantity <= 0:
                     continue
@@ -73,7 +79,13 @@ class StockPicking(models.Model):
                     if not lot:
                         not_existing.append(name)  # would create → forbidden
                         continue
-                if lot not in sol._rsl_returnable_lot_ids():
+                # With no sale order line (company-decided delivery) fall
+                # back to the order-independent P3 set: serials the client
+                # actually holds.
+                allowed = sol._rsl_returnable_lot_ids() if sol else \
+                    self.env['stock.lot']._rsl_lots_at_client(
+                        line.product_id, picking.company_id)
+                if lot not in allowed:
                     not_returnable.append(lot.name)
             if not_existing or not_returnable:
                 parts = []

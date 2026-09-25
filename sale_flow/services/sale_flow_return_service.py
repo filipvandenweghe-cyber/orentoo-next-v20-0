@@ -21,19 +21,24 @@ class SaleFlowReturnService(models.AbstractModel):
     def _check_missing_returns(self, picking):
         """Check for missing rental returns after return picking validation.
 
-        Opens the lost/broken wizard whenever there are still items that
-        have not been returned.  This applies both to:
-          * No-backorder scenarios (items are definitively missing)
-          * Backorder scenarios (items are on a backorder but the user
-            may already know some are lost/broken)
+        The wizard only opens when **nothing more is coming back** — i.e. the
+        return has no open back-order left.  Two situations reach that state:
 
-        The wizard defaults lost and broken to 0 — the user decides.
-        If the user fills in lost/broken quantities, those are processed
-        immediately (charge lines created) and the backorder demand is
-        reduced accordingly.  Remaining missing items (missing - lost -
-        broken) stay on the backorder for future return.
+          * the return was validated WITHOUT a back-order;
+          * a return back-order was later CANCELLED (R22).
+
+        While an open back-order exists the missing units are simply on their
+        way — the customer may still bring them — so the wizard stays out of
+        the way and the units keep their return demand.
+
+        Once it does open, the classification is **closing**: every missing
+        unit must be assigned to one of the three buckets (see the wizard),
+        so nothing is left silently "expected back" from a customer that no
+        operation will ever collect from.
         """
         if not picking.return_id:
+            return
+        if self._has_open_return_backorder(picking):
             return
 
         order = picking.sale_id
@@ -58,6 +63,19 @@ class SaleFlowReturnService(models.AbstractModel):
 
         if missing_lines:
             return self._open_lost_broken_wizard(picking, missing_lines)
+
+    def _has_open_return_backorder(self, picking):
+        """True while another return picking is still due to bring units back.
+
+        Covers the back-order chain of this return (and of its siblings), so a
+        partially received return that left a back-order open does not trigger
+        the closing wizard.
+        """
+        return bool(self.env['stock.picking'].search_count([
+            ('id', '!=', picking.id),
+            ('return_id', '=', picking.return_id.id),
+            ('state', 'not in', ('done', 'cancel')),
+        ], limit=1))
 
     def _get_expected_return_qty(self, flow_line):
         """Compute expected return quantity for a rental flow line.

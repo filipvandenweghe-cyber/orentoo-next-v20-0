@@ -43,17 +43,23 @@ class SaleFlowLostBrokenWizard(models.TransientModel):
     def action_confirm(self):
         """Validate the classification, then scrap and charge accordingly.
 
-        If nothing is classified, just close (the missing items stay on the
-        backorder for a later return).
+        The classification is **closing**: the wizard only opens when nothing
+        more is coming back (no open return back-order), so every missing unit
+        must be assigned to one of the three buckets.  A partial
+        classification used to be accepted and the remainder was left silently
+        "expected back" — with no operation that would ever collect it, that
+        unit stayed reserved against the warehouse for ever.
         """
         self.ensure_one()
 
         prec = self.env['decimal.precision'].precision_get(
             'Product Unit of Measure')
+        unallocated = []
         for wiz_line in self.line_ids:
             total = wiz_line._classified_qty()
-            if float_compare(total, wiz_line.missing_qty,
-                             precision_digits=prec) > 0:
+            cmp_missing = float_compare(
+                total, wiz_line.missing_qty, precision_digits=prec)
+            if cmp_missing > 0:
                 raise UserError(_(
                     'Classified quantity (%(total)s) cannot exceed the missing '
                     'quantity (%(missing)s) for product %(product)s.',
@@ -61,6 +67,26 @@ class SaleFlowLostBrokenWizard(models.TransientModel):
                     missing=wiz_line.missing_qty,
                     product=wiz_line.product_id.display_name,
                 ))
+            if cmp_missing < 0:
+                unallocated.append(wiz_line)
+
+        if unallocated:
+            raise UserError(_(
+                'Every missing unit must be accounted for — nothing is coming '
+                'back on this return.\n\n%(details)s\n\n'
+                'Split each remainder over "Fully Broken (charged)", '
+                '"Lost (charged)" or "Lost (not charged)". Use '
+                '"Lost (not charged)" when the unit is written off without '
+                'billing the customer.',
+                details='\n'.join(
+                    ' • %s: %g of %g still unassigned' % (
+                        wl.product_id.display_name,
+                        wl.missing_qty - wl._classified_qty(),
+                        wl.missing_qty,
+                    )
+                    for wl in unallocated
+                ),
+            ))
 
         has_classified = any(
             float_compare(wl._classified_qty(), 0, precision_digits=prec) > 0

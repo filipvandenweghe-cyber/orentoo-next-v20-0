@@ -8,14 +8,27 @@ class SaleOrderLine(models.Model):
     def _rsl_returnable_lot_ids(self):
         """Serials that MAY be returned against this rental line.
 
-        P1: the serials actually **picked up** on this line.  This is the
-        single override point for later phases (P3 will widen it to, e.g.,
-        every serial currently at the client) — the return-validation hooks
-        (the constraint below and the picking pre-check) both defer to it, so
-        broadening the rule never touches the hooks.
+        **P3**: the serials picked up on this line, PLUS every serial of the
+        same product the client currently holds (on hand at the at-customer
+        rental location).  This is the single override point the
+        return-validation hooks defer to — the constraint below and the
+        picking pre-check — so the rule widened without touching either.
+
+        Why widen (P1 was "picked up on this line" only):
+
+        * a unit the rental company delivered **without** adding it to the
+          order has no ``sale.order.line`` at all when
+          ``sale_flow_skip_invoice_logistics`` is on, yet it must still come
+          back — and be validated when it does;
+        * a swap between two orders of the same customer would otherwise be
+          rejected even though the serial is genuinely at the client.
+
+        The invariants are unchanged: the serial must already exist (a return
+        never creates one) and must genuinely be out at the client.
         """
         self.ensure_one()
-        return self.pickedup_lot_ids
+        return self.pickedup_lot_ids | self.env['stock.lot']._rsl_lots_at_client(
+            self.product_id, self.company_id)
 
     @api.constrains('returned_lot_ids')
     def _rsl_check_returned_lots(self):
