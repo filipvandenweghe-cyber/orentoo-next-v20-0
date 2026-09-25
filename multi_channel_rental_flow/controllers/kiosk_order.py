@@ -798,8 +798,8 @@ class MultiChannelRentalKioskOrder(http.Controller):
             # Start payment + simulate demo
             tx = dossier.action_start_payment()
             if tx.state == 'draft':
-                tx._set_done()
-                tx._post_process()
+                tx.with_context(payment_safe_write=True)._set_done()
+                tx._post_process_with_lock()
 
             # Get ticket payload for printing
             ticket_svc = request.env[

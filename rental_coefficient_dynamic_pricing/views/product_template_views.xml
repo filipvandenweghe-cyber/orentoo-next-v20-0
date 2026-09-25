@@ -10,7 +10,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Coefficient &amp; Dynamic Pricing"
                       name="rental_pricing_config"
-                      invisible="not rent_ok">
+                      invisible="not rent_periodicity">
                     <p class="text-muted mb-3">
                         Configure per-warehouse coefficient tables and dynamic pricing
                         for this product. The final rental price is calculated as:

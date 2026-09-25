@@ -7,7 +7,6 @@
         <field name="model">rental.dossier</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">multi_channel_rental_flow.report_dossier_tickets</field>
-        <field name="report_file">multi_channel_rental_flow.report_dossier_tickets</field>
         <field name="print_report_name">'Tickets - %s' % object.name</field>
         <field name="binding_model_id" ref="multi_channel_rental_flow.model_rental_dossier"/>
         <field name="binding_type">report</field>

@@ -36,7 +36,7 @@ class TestRentalShortDeliveryRelease(TransactionCase):
 
         cls.prod = cls.env['product.product'].create({
             'name': 'Short Widget', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, qty):
@@ -152,15 +152,20 @@ class TestRentalShortDeliveryRelease(TransactionCase):
 
         # Scrap 1 from the rental location, linked to the rental line
         # (exactly what the wizard's _scrap_from_rental does).
-        scrap = self.env['stock.scrap'].create({
+        # Odoo 20: a scrap is a stock.move flagged is_scrap, processed
+        # with _action_scrap() (the stock.scrap model is gone).
+        scrap = self.env['stock.move'].create({
             'product_id': self.prod.id,
-            'product_uom_id': self.prod.uom_id.id,
-            'scrap_qty': 1,
+            'uom_id': self.prod.uom_id.id,
+            'product_uom_qty': 1,
+            'quantity': 1,
+            'is_scrap': True,
             'location_id': self.company.rental_loc_id.id,
+            'location_dest_id': self.company.scrap_location_id.id,
             'company_id': self.company.id,
+            'sale_line_id': line.id,
         })
-        scrap.do_scrap()
-        scrap.move_ids.write({'sale_line_id': line.id})
+        scrap._action_scrap()
 
         # Total −1 (written off) AND reservation −1 (no longer out): both move.
         self.assertAlmostEqual(
@@ -185,15 +190,20 @@ class TestRentalShortDeliveryRelease(TransactionCase):
 
         # Write off all 5 as lost/broken (scrap from the rental location,
         # linked to the line) — exactly what the wizard does.
-        scrap = self.env['stock.scrap'].create({
+        # Odoo 20: a scrap is a stock.move flagged is_scrap, processed
+        # with _action_scrap() (the stock.scrap model is gone).
+        scrap = self.env['stock.move'].create({
             'product_id': self.prod.id,
-            'product_uom_id': self.prod.uom_id.id,
-            'scrap_qty': 5,
+            'uom_id': self.prod.uom_id.id,
+            'product_uom_qty': 5,
+            'quantity': 5,
+            'is_scrap': True,
             'location_id': self.company.rental_loc_id.id,
+            'location_dest_id': self.company.scrap_location_id.id,
             'company_id': self.company.id,
+            'sale_line_id': line.id,
         })
-        scrap.do_scrap()
-        scrap.move_ids.write({'sale_line_id': line.id})
+        scrap._action_scrap()
 
         self.assertAlmostEqual(line._rental_scrapped_qty(), 5.0, places=2)
         self.assertFalse(

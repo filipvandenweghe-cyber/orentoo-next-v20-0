@@ -305,7 +305,7 @@ class TestRentalFlowProfile(TransactionCase):
         printer = self.env['pos.printer'].create({
             'name': 'MCRF Test Epson',
             'printer_type': 'epson_epos',
-            'epson_printer_ip': '192.168.1.100',
+            'printer_ip': '192.168.1.100',
         })
         profile = self.env['multi.channel.rental.profile'].create({
             'name': 'ePOS Profile',

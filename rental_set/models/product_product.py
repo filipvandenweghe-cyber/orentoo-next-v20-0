@@ -48,7 +48,7 @@ class ProductProduct(models.Model):
                 # period-aware via the canonical engine).
                 product.rental_avail_catalog = product._rental_set_avail_for_period(
                     start, end, warehouse, company)
-            elif product.rent_ok and product.is_storable:
+            elif product.rent_periodicity and product.is_storable:
                 product.rental_avail_catalog = product._rental_available_qty(
                     start, end, warehouse=warehouse, company=company)
             else:
@@ -243,7 +243,7 @@ class ProductProduct(models.Model):
         total = self._rental_physical_total(warehouse=warehouse, company=company)
 
         reserved_other = 0.0
-        if self.rent_ok and hasattr(self, '_get_unavailable_qty'):
+        if self.rent_periodicity and hasattr(self, '_get_unavailable_qty'):
             reserved_other = self._get_unavailable_qty(
                 from_date, to_date,
                 ignored_soline_id=ignored_soline_id, warehouse_id=wh_id,
@@ -373,7 +373,7 @@ class ProductProduct(models.Model):
         term (so overlapping options are counted at their peak, never
         double-counted across time).  ``0`` when nothing is on option."""
         self.ensure_one()
-        if not self.rent_ok:
+        if not self.rent_periodicity:
             return 0.0
         to_date = to_date or from_date
         lines = self._get_on_option_lines(
@@ -788,7 +788,7 @@ class ProductProduct(models.Model):
             else:
                 total = product._rental_physical_total(
                     warehouse=warehouse, company=company)
-            rentable = product.rent_ok and hasattr(product, '_get_unavailable_qty')
+            rentable = product.rent_periodicity and hasattr(product, '_get_unavailable_qty')
             if rentable:
                 rented, base_keys = product._rental_reserved_stepfn(
                     win_start, win_end, warehouse_id=wh_id,

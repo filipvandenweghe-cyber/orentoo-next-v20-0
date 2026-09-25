@@ -162,11 +162,10 @@ class MultiChannelRentalKiosk(http.Controller):
 
         printer = profile.pos_printer_id
         if printer:
+            # Odoo 20: pos.printer.epson_printer_ip -> printer_ip, and
+            # proxy_ip (IoT box) no longer exists on pos.printer.
             config['printer_type'] = printer.printer_type or ''
-            if printer.printer_type == 'epson_epos':
-                config['printer_ip'] = printer.epson_printer_ip or ''
-            else:
-                config['proxy_ip'] = printer.proxy_ip or ''
+            config['printer_ip'] = printer.printer_ip or ''
 
         # Pre-convert logo to monochrome raster for ePOS
         logo_data = profile.receipt_logo or profile.company_id.logo

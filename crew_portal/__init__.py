@@ -8,3 +8,4 @@ invitations), My Planning (upcoming shifts, "can no longer work"), My Hours
 (declare worked hours). See ``docs/crew_portal_requirements.md``.
 """
 from . import controllers
+from . import models

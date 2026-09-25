@@ -52,13 +52,13 @@ class TestRentalSetIntegration(TransactionCase):
         # Component products
         cls.comp_product_a = cls.env['product.product'].create({
             'name': 'Component A',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 10.0,
         })
         cls.comp_product_b = cls.env['product.product'].create({
             'name': 'Component B',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 15.0,
         })
@@ -66,7 +66,7 @@ class TestRentalSetIntegration(TransactionCase):
         # --- Fixed-price set ---
         cls.fixed_set_tmpl = cls.env['product.template'].create({
             'name': 'Fixed Price Set',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'type': 'consu',
             'list_price': 50.0,
@@ -87,7 +87,7 @@ class TestRentalSetIntegration(TransactionCase):
         # --- Sum-of-components set ---
         cls.sum_set_tmpl = cls.env['product.template'].create({
             'name': 'Sum Price Set',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'type': 'consu',
             'list_price': 0.0,
@@ -123,7 +123,7 @@ class TestRentalSetIntegration(TransactionCase):
     def _create_set_order(self, product, start, end, qty=1):
         """Create a rental order, add a set product, trigger expansion.
 
-        After expansion, calls action_update_rental_prices() which
+        After expansion, calls _recompute_rental_prices() which
         triggers _compute_price_unit with force_price_recomputation.
         This ensures coefficient × dynamic is applied on top of the
         set parent price (fixed or sum-of-components).
@@ -145,7 +145,7 @@ class TestRentalSetIntegration(TransactionCase):
         # Trigger set expansion (creates component lines + applies pricing)
         parent_line._expand_rental_set()
         # Reapply coefficient × dynamic after set pricing
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         parent_line.invalidate_recordset()
         return order, parent_line
 
@@ -257,7 +257,7 @@ class TestRentalSetIntegration(TransactionCase):
             'is_rental_order': True,
         })
         # Add the set line like the UI: a plain create(), with NO explicit
-        # _expand_rental_set() and NO action_update_rental_prices() call.
+        # _expand_rental_set() and NO _recompute_rental_prices() call.
         parent = self.env['sale.order.line'].create({
             'order_id': order.id,
             'product_id': self.sum_set_product.id,
@@ -322,7 +322,7 @@ class TestRentalSetIntegration(TransactionCase):
         new_end = start + timedelta(days=7)
         order.write({'rental_return_date': new_end})
         order.order_line.write({'return_date': new_end})
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         parent.invalidate_recordset()
 
         # Base (component sum) is duration-independent and unchanged.
@@ -452,7 +452,7 @@ class TestRentalSetIntegration(TransactionCase):
         # Change dates to 3 days (coeff should become 1.0 → "as from 1")
         order.rental_start_date = datetime(2026, 6, 1, 10, 0)
         order.rental_return_date = datetime(2026, 6, 2, 10, 0)
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         parent.invalidate_recordset()
 
         self.assertEqual(parent.applied_coefficient, 1.0)
@@ -508,7 +508,7 @@ class TestRentalSetIntegration(TransactionCase):
         # Change to 1 day (coefficient = 1.0)
         order.rental_start_date = datetime(2026, 6, 1, 10, 0)
         order.rental_return_date = datetime(2026, 6, 2, 10, 0)
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         parent.invalidate_recordset()
 
         components = order.order_line.filtered('is_set_component')
@@ -534,7 +534,7 @@ class TestNonSetProductsWithRentalSet(TransactionCase):
         })
         cls.product_tmpl = cls.env['product.template'].create({
             'name': 'Non-Set Rental Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 25.0,
         })

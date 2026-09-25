@@ -167,7 +167,7 @@ class TestCrewRequests(TransactionCase):
         self.assertEqual(req.staffing_display, '0 / 2')
         # add a planning slot linked to the request -> staffing rises, coverage unchanged
         self.env['planning.slot'].create({
-            'resource_id': self.emp_adv.resource_id.id,
+            'resource_ids': self.emp_adv.resource_id.ids,
             'crew_request_id': req.id,
             'start_datetime': self.d1, 'end_datetime': self.d2})
         req.invalidate_recordset(['planned_headcount', 'staffing_display'])
@@ -345,7 +345,7 @@ class TestCrewRequests(TransactionCase):
         self.env.company.planning_employee_unavailabilities = 'unassign'
         req = self._make_request(role_id=self.role_sound.id)
         slot = self.env['planning.slot'].create({
-            'resource_id': self.emp_adv.resource_id.id,
+            'resource_ids': self.emp_adv.resource_id.ids,
             'crew_request_id': req.id,
             'start_datetime': self.d1, 'end_datetime': self.d2})
         self.assertTrue(slot.allow_self_unassign)
@@ -353,7 +353,7 @@ class TestCrewRequests(TransactionCase):
         slot.action_crew_report_cannot_work('Sick')
         self.assertTrue(slot.crew_unavailable_reported)
         self.assertEqual(slot.crew_unavailable_reason, 'Sick')
-        self.assertFalse(slot.resource_id, "Crew must be unassigned (open shift).")
+        self.assertFalse(slot.resource_ids, "Crew must be unassigned (open shift).")
         self.assertTrue(slot.exists(), "The shift itself must NOT be deleted.")
         self.assertGreater(len(req.message_ids), before,
                            "The planner must be notified via the request chatter.")
@@ -364,7 +364,7 @@ class TestCrewRequests(TransactionCase):
         self.env.company.planning_employee_unavailabilities = 'switch'
         req = self._make_request(role_id=self.role_sound.id)
         slot = self.env['planning.slot'].create({
-            'resource_id': self.emp_adv.resource_id.id,
+            'resource_ids': self.emp_adv.resource_id.ids,
             'crew_request_id': req.id,
             'start_datetime': self.d1, 'end_datetime': self.d2})
         self.assertFalse(slot.allow_self_unassign)
@@ -372,7 +372,7 @@ class TestCrewRequests(TransactionCase):
         slot.action_crew_report_cannot_work('Sick')
         self.assertTrue(slot.crew_unavailable_reported)
         self.assertEqual(slot.crew_unavailable_reason, 'Sick')
-        self.assertEqual(slot.resource_id, self.emp_adv.resource_id,
+        self.assertEqual(slot.resource_ids, self.emp_adv.resource_id,
                          "Assignment must be kept under the 'switch' policy.")
         self.assertGreater(len(req.message_ids), before,
                            "The planner must still be notified.")
@@ -381,14 +381,14 @@ class TestCrewRequests(TransactionCase):
         self.env.company.planning_employee_unavailabilities = 'unassign'
         req = self._make_request(role_id=self.role_sound.id)
         slot = self.env['planning.slot'].create({
-            'resource_id': self.emp_adv.resource_id.id,
+            'resource_ids': self.emp_adv.resource_id.ids,
             'crew_request_id': req.id,
             'start_datetime': self.d1, 'end_datetime': self.d2})
         slot.action_crew_report_cannot_work('Sick')
-        self.assertFalse(slot.resource_id)
+        self.assertFalse(slot.resource_ids)
         self.assertTrue(slot.crew_unavailable_reported)
         # planner reassigns the shift in the backend -> flag/reason cleared
-        slot.resource_id = self.emp_adv.resource_id
+        slot.resource_ids = self.emp_adv.resource_id
         self.assertFalse(slot.crew_unavailable_reported,
                          "Re-assigning a crew member must clear the stale flag.")
         self.assertFalse(slot.crew_unavailable_reason)
@@ -407,13 +407,13 @@ class TestCrewRequests(TransactionCase):
         self.env.company.planning_self_unassign_days_before = 30
         req = self._make_request(role_id=self.role_sound.id)
         slot = self.env['planning.slot'].create({
-            'resource_id': self.emp_adv.resource_id.id,
+            'resource_ids': self.emp_adv.resource_id.ids,
             'crew_request_id': req.id,
             'start_datetime': self.d1, 'end_datetime': self.d2})  # d1 = now + 20d
         self.assertTrue(slot.is_unassign_deadline_passed)
         self.assertFalse(slot._crew_may_self_unassign())
         slot.action_crew_report_cannot_work('too late')
-        self.assertEqual(slot.resource_id, self.emp_adv.resource_id,
+        self.assertEqual(slot.resource_ids, self.emp_adv.resource_id,
                          "Past the deadline -> assignment kept.")
         self.assertTrue(slot.crew_unavailable_reported)
 

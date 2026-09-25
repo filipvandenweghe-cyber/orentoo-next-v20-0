@@ -1,0 +1,13 @@
+id,name,model_id,group_id/id,operation,domain
+access_rental_coefficient_type_user,rental.coefficient.type.user,rental.coefficient.type,sales_team.group_sale_salesman,r,
+access_rental_coefficient_type_manager,rental.coefficient.type.manager,rental.coefficient.type,sales_team.group_sale_manager,crud,
+access_rental_coefficient_table_user,rental.coefficient.table.user,rental.coefficient.table,sales_team.group_sale_salesman,r,
+access_rental_coefficient_table_manager,rental.coefficient.table.manager,rental.coefficient.table,sales_team.group_sale_manager,crud,
+access_rental_coefficient_table_line_user,rental.coefficient.table.line.user,rental.coefficient.table.line,sales_team.group_sale_salesman,r,
+access_rental_coefficient_table_line_manager,rental.coefficient.table.line.manager,rental.coefficient.table.line,sales_team.group_sale_manager,crud,
+access_rental_dynamic_pricing_table_user,rental.dynamic.pricing.table.user,rental.dynamic.pricing.table,sales_team.group_sale_salesman,r,
+access_rental_dynamic_pricing_table_manager,rental.dynamic.pricing.table.manager,rental.dynamic.pricing.table,sales_team.group_sale_manager,crud,
+access_rental_dynamic_pricing_table_line_user,rental.dynamic.pricing.table.line.user,rental.dynamic.pricing.table.line,sales_team.group_sale_salesman,r,
+access_rental_dynamic_pricing_table_line_manager,rental.dynamic.pricing.table.line.manager,rental.dynamic.pricing.table.line,sales_team.group_sale_manager,crud,
+access_rental_product_warehouse_pricing_config_user,rental.product.warehouse.pricing.config.user,rental.product.warehouse.pricing.config,sales_team.group_sale_salesman,r,
+access_rental_product_warehouse_pricing_config_manager,rental.product.warehouse.pricing.config.manager,rental.product.warehouse.pricing.config,sales_team.group_sale_manager,crud,

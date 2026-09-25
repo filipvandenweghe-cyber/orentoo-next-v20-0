@@ -1,17 +1,24 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart } from "@odoo/owl";
+import { Component, onWillStart, proxy, t, useProps, usePlugin } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Dialog } from "@web/core/dialog/dialog";
 import { MultiRecordSelector } from "@web/core/record_selectors/multi_record_selector";
+import { ActionPlugin } from "@web/webclient/actions/action_plugin";
 
 const MODEL = "rental.availability.report";
 
 /** Drill-down dialog for a single cell. */
 export class AvailabilityCellDialog extends Component {
+    // Owl 3 ignores a static `props`; the schema goes through useProps().
+    props = useProps({
+        detail: t.object(),
+        close: t.function(),
+    });
+
     setup() {
-        this.action = useService("action");
+        this.action = usePlugin(ActionPlugin);
     }
 
     /** Open the sale/rental order form for a contributing order. */
@@ -31,7 +38,6 @@ export class AvailabilityCellDialog extends Component {
 }
 AvailabilityCellDialog.template = "rental_set.AvailabilityCellDialog";
 AvailabilityCellDialog.components = { Dialog };
-AvailabilityCellDialog.props = { detail: Object, close: Function };
 
 /**
  * Read-only Availability Report client action.
@@ -46,7 +52,7 @@ export class AvailabilityMatrix extends Component {
         this.orm = useService("orm");
         this.dialog = useService("dialog");
 
-        this.state = useState({
+        this.state = proxy({
             loading: false,
             displayMode: "available",
             filters: {

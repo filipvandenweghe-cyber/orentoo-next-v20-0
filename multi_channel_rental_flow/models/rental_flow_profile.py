@@ -595,7 +595,7 @@ class RentalFlowProfile(models.Model):
     )
 
     def _compute_kiosk_url(self):
-        base = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
+        base = self.env['ir.config_parameter'].sudo().get_str('web.base.url', '')
         for profile in self:
             if profile.id and isinstance(profile.id, int):
                 profile.kiosk_url = f"{base}/rental-kiosk/{profile.id}"
@@ -635,8 +635,11 @@ class RentalFlowProfile(models.Model):
             'context': {'default_use_in_multi_channel_rental_flow': True},
         }
 
+    # Odoo 20 renamed pos.printer.epson_printer_ip to printer_ip and dropped
+    # proxy_ip (IoT-box proxy printing): 'epson_epos' is now the only
+    # printer_type, so the single printer_ip covers every case.
     @api.depends('pos_printer_id', 'pos_printer_id.printer_type',
-                 'pos_printer_id.epson_printer_ip', 'pos_printer_id.proxy_ip')
+                 'pos_printer_id.printer_ip')
     def _compute_printer_info(self):
         for profile in self:
             printer = profile.pos_printer_id
@@ -644,10 +647,7 @@ class RentalFlowProfile(models.Model):
                 profile.printer_type_display = dict(
                     printer._fields['printer_type'].selection
                 ).get(printer.printer_type, '')
-                if printer.printer_type == 'epson_epos':
-                    profile.printer_ip_display = printer.epson_printer_ip or ''
-                else:
-                    profile.printer_ip_display = printer.proxy_ip or ''
+                profile.printer_ip_display = printer.printer_ip or ''
             else:
                 profile.printer_type_display = ''
                 profile.printer_ip_display = ''

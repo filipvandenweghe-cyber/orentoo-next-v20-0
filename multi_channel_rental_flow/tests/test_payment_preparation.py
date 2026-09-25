@@ -26,7 +26,7 @@ class TestPaymentPreparation(TransactionCase):
             'name': 'MCRF PP Test Kayak',
             'type': 'consu',
             'list_price': 50.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
         })
@@ -50,7 +50,7 @@ class TestPaymentPreparation(TransactionCase):
             'name': 'MCRF PP Storable Kayak',
             'type': 'consu',
             'list_price': 50.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_storable': True,
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
@@ -330,7 +330,7 @@ class TestPaymentPreparation(TransactionCase):
     def test_70_rollback_only_touches_generated_orders(self):
         """Rollback does not cancel manually linked orders.
 
-        Uses a non-rental storable product (not rent_ok) so the hard
+        Uses a non-rental storable product (not rent_periodicity) so the hard
         gate applies — rental orders skip reservation verification.
         """
         # Non-rental storable product for hard gate testing

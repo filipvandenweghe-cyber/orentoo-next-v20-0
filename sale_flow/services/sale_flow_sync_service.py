@@ -291,11 +291,19 @@ class SaleFlowSyncService(models.AbstractModel):
                 or (dest.location_id and dest.location_id.usage == 'customer')
             )
 
+        def _left_customer(move):
+            src = move.location_id
+            return (
+                src == rental_loc
+                or src.usage in ('customer', 'transit')
+                or (src.location_id and src.location_id.usage == 'customer')
+            )
+
         outbound = order.picking_ids.filtered(lambda p: not p.return_id)
         expected_map = {}
         pending_products = set()   # products with a delivery still in progress
         for m in outbound.move_ids:
-            if m.state == 'cancel' or not m.product_id.rent_ok:
+            if m.state == 'cancel' or not m.product_id.rent_periodicity:
                 continue
             if m.state == 'done':
                 if _reached_customer(m):
@@ -303,6 +311,25 @@ class SaleFlowSyncService(models.AbstractModel):
                         expected_map.get(m.product_id.id, 0) + m.quantity
             else:
                 pending_products.add(m.product_id.id)
+
+        # ...minus what already came back.  Odoo 20 creates the rental return
+        # picking together with the delivery and links it to it (``return_id``,
+        # which also propagates to its back-orders), so a return is routinely
+        # validated in several legs (partial return -> back-order).  What is
+        # still expected back is therefore "what went out" MINUS what has
+        # already been received; without this the open leg would keep
+        # re-demanding the full delivered quantity.
+        returned_map = {}
+        for picking in order.picking_ids.filtered(lambda p: p.return_id):
+            for m in picking.move_ids:
+                if m.state != 'done' or not m.product_id.rent_periodicity:
+                    continue
+                if _left_customer(m):
+                    returned_map[m.product_id.id] = \
+                        returned_map.get(m.product_id.id, 0) + m.quantity
+        for pid, returned in returned_map.items():
+            if pid in expected_map:
+                expected_map[pid] = max(expected_map[pid] - returned, 0)
 
         for picking in return_pickings:
             active_moves = picking.move_ids.filtered(lambda m: m.state != 'cancel')
@@ -375,7 +402,7 @@ class SaleFlowSyncService(models.AbstractModel):
                 self.env['stock.move'].with_context(skip_sale_flow_sync=True).create({
                     'product_id': product.id,
                     'product_uom_qty': expected_qty,
-                    'product_uom': product.uom_id.id,
+                    'uom_id': product.uom_id.id,
                     'picking_id': picking.id,
                     'location_id': picking.location_id.id,
                     'location_dest_id': picking.location_dest_id.id,

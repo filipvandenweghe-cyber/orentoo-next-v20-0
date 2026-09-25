@@ -3,7 +3,7 @@
     'author': 'Pro-Designed.com',
     'category': 'Website/Website',
     'summary': 'Stock availability checks for rental sets on eCommerce',
-    'version': '1.0',
+    'version': '20.0.1.0.0',
     'description': """
 Bridge module that adds component-based stock availability checks for
 rental sets on the eCommerce frontend.

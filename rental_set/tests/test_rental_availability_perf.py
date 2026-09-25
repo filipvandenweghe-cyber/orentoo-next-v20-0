@@ -91,7 +91,7 @@ class TestRentalAvailabilityPerf(TransactionCase):
     def _seed_products(cls):
         vals = [{
             'name': 'Perf Product %03d' % i,
-            'type': 'consu', 'is_storable': True, 'rent_ok': True,
+            'type': 'consu', 'is_storable': True, 'rent_periodicity': 'days',
             'categ_id': cls.category.id,
         } for i in range(cls.N_PRODUCTS)]
         cls.products = cls.env['product.product'].create(vals)
@@ -140,7 +140,7 @@ class TestRentalAvailabilityPerf(TransactionCase):
             dst = cls.warehouses[(i + 1) % len(cls.warehouses)]
             product = cls.products[i % len(cls.products)]
             move = Move.create({
-                'product_id': product.id, 'product_uom': product.uom_id.id,
+                'product_id': product.id, 'uom_id': product.uom_id.id,
                 'product_uom_qty': 2.0,
                 'location_id': src.lot_stock_id.id,
                 'location_dest_id': dst.lot_stock_id.id,

@@ -331,10 +331,17 @@ class MultiChannelRentalService(models.AbstractModel):
         source of truth for when the branch is open and therefore for how
         slot start times are computed and displayed.  Falls back to the
         current user's timezone, then UTC, when no calendar is configured.
+
+        Odoo 20 removed ``resource.calendar.tz``: a working schedule is now
+        read in its company's timezone (``res.company.tz``), so that is where
+        the branch timezone lives.
         """
         calendar = warehouse.opening_hours if warehouse else None
-        if calendar and calendar.tz:
-            return calendar.tz
+        if calendar:
+            return (calendar.company_id.tz
+                    or warehouse.company_id.tz
+                    or self.env.user.tz
+                    or 'UTC')
         return self.env.user.tz or 'UTC'
 
     @api.model

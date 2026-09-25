@@ -9,7 +9,7 @@
         <record id="demo_pos_printer" model="pos.printer">
             <field name="name">Kiosk Epson Printer</field>
             <field name="printer_type">epson_epos</field>
-            <field name="epson_printer_ip">192.168.2.234</field>
+            <field name="printer_ip">192.168.2.234</field>
         </record>
 
         <!-- ==========================================================
@@ -112,7 +112,7 @@
             <field name="name">Kayak (1-persoons)</field>
             <field name="type">consu</field>
             <field name="list_price">10.0</field>
-            <field name="rent_ok" eval="True"/>
+            <field name="rent_periodicity">days</field>
             <field name="sale_ok" eval="False"/>
             <field name="categ_id" ref="sale_renting.product_category_renting"/>
             <field name="use_in_multi_channel_rental_flow" eval="True"/>
@@ -125,7 +125,7 @@
             <field name="name">Kayak (2-persoons)</field>
             <field name="type">consu</field>
             <field name="list_price">15.22</field>
-            <field name="rent_ok" eval="True"/>
+            <field name="rent_periodicity">days</field>
             <field name="sale_ok" eval="False"/>
             <field name="categ_id" ref="sale_renting.product_category_renting"/>
             <field name="use_in_multi_channel_rental_flow" eval="True"/>
@@ -138,7 +138,7 @@
             <field name="name">Canadese Kano</field>
             <field name="type">consu</field>
             <field name="list_price">17.83</field>
-            <field name="rent_ok" eval="True"/>
+            <field name="rent_periodicity">days</field>
             <field name="sale_ok" eval="False"/>
             <field name="categ_id" ref="sale_renting.product_category_renting"/>
             <field name="use_in_multi_channel_rental_flow" eval="True"/>
@@ -151,7 +151,7 @@
             <field name="name">Klimparcours</field>
             <field name="type">service</field>
             <field name="list_price">1.0</field>
-            <field name="rent_ok" eval="False"/>
+            <field name="rent_periodicity" eval="False"/>
             <field name="sale_ok" eval="True"/>
             <field name="categ_id" ref="event_product.product_category_events"/>
             <field name="service_tracking">event</field>

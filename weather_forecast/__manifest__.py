@@ -11,7 +11,7 @@
 # =============================================================================
 {
     'name': 'Weather Forecast',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'author': 'Kooki BV (Pro-Designed.com)',
     'website': 'https://www.pro-designed.com',
     'category': 'Tools',
@@ -25,11 +25,11 @@
     'data': [
         # Load order matters: security first, then data, then views
         'security/security.xml',
-        'security/ir.model.access.csv',
         'data/cron.xml',
         'views/res_config_settings_views.xml',
         'views/weather_location_views.xml',
         'views/menus.xml',
+        'security/ir.access.csv',
     ],
     'installable': True,
     'application': True,

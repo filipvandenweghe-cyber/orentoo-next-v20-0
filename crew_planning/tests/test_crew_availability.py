@@ -35,8 +35,11 @@ class TestCrewAvailability(TransactionCase):
             ('date_from', '<', end), ('date_to', '>', start)]))
 
     def _work_intervals(self, resource, start, end):
+        # Odoo 20: _work_intervals_batch takes resources_per_tz (a mapping
+        # built by resource._get_resources_per_tz()) instead of resources.
         res = resource.calendar_id._work_intervals_batch(
-            utc.localize(start), utc.localize(end), resources=resource)
+            utc.localize(start), utc.localize(end),
+            resources_per_tz=resource._get_resources_per_tz())
         return list(res.get(resource.id, []))
 
     # ------------------------------------------------------------------

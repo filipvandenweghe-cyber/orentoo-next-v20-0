@@ -21,10 +21,10 @@ class TestRentalAvailability(TransactionCase):
 
         cls.prod = cls.env['product.product'].create({
             'name': 'Avail Widget', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
         cls.serial_prod = cls.env['product.product'].create({
             'name': 'Avail Serial', 'type': 'consu', 'is_storable': True,
-            'tracking': 'serial', 'rent_ok': True})
+            'tracking': 'serial', 'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, product, qty, lot=None):
@@ -54,7 +54,7 @@ class TestRentalAvailability(TransactionCase):
                 'order_id': order.id, 'product_id': product.id,
                 'product_uom_qty': qty})
 
-    def _repair(self, product, qty=1, state='under_repair', lot=None,
+    def _repair(self, product, qty=1, state='confirmed', lot=None,
                 schedule_offset=1):
         now = fields.Datetime.now()
         vals = {
@@ -148,7 +148,7 @@ class TestRentalAvailability(TransactionCase):
     # ── T-06 ─────────────────────────────────────────────────────────────
     def test_06_set_availability_limiting_component(self):
         set_tmpl = self.env['product.template'].create({
-            'name': 'Avail Set', 'type': 'consu', 'rent_ok': True,
+            'name': 'Avail Set', 'type': 'consu', 'rent_periodicity': 'days',
             'is_rental_set': True, 'set_pricing_mode': 'sum'})
         self.env['rental.set.component'].create({
             'set_product_tmpl_id': set_tmpl.id, 'product_id': self.prod.id,
@@ -169,9 +169,9 @@ class TestRentalAvailability(TransactionCase):
     def test_07_set_non_storable_limitless(self):
         non_storable = self.env['product.product'].create({
             'name': 'Avail Service', 'type': 'consu', 'is_storable': False,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
         set_tmpl = self.env['product.template'].create({
-            'name': 'Service Set', 'type': 'consu', 'rent_ok': True,
+            'name': 'Service Set', 'type': 'consu', 'rent_periodicity': 'days',
             'is_rental_set': True, 'set_pricing_mode': 'sum'})
         self.env['rental.set.component'].create({
             'set_product_tmpl_id': set_tmpl.id, 'product_id': non_storable.id,

@@ -39,7 +39,7 @@ class TestKioskOrder(TransactionCase):
             'type': 'consu',
             'is_storable': True,
             'list_price': 50.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
             'available_in_multi_channel_kiosk': True,
@@ -78,11 +78,13 @@ class TestKioskOrder(TransactionCase):
         # payment, which needs an *enabled* demo payment provider. The
         # demo provider (from payment_demo) ships disabled by default, so
         # enable it for the test transaction.
-        cls.demo_provider = cls.env['payment.provider'].search(
-            [('code', '=', 'demo')], limit=1,
-        )
-        if cls.demo_provider and cls.demo_provider.state == 'disabled':
-            cls.demo_provider.write({'state': 'test'})
+        # Odoo 20 replaced payment.provider.state by 'active' (archived ==
+        # disabled) + 'is_live' (live vs. test mode).
+        cls.demo_provider = cls.env['payment.provider'].with_context(
+            active_test=False,
+        ).search([('code', '=', 'demo')], limit=1)
+        if cls.demo_provider and not cls.demo_provider.active:
+            cls.demo_provider.write({'active': True, 'is_live': False})
 
         # Enabling the demo provider via a raw write does not auto-assign a
         # payment journal, and some demo/test databases have no chart of
@@ -672,9 +674,12 @@ class TestKioskOrder(TransactionCase):
 
     def test_74_schedule_display_uses_warehouse_calendar_tz(self):
         """Basket time is shown in the warehouse opening-hours calendar tz."""
+        # Odoo 20 removed resource.calendar.tz: a schedule is read in its
+        # company's timezone.
+        self.env.company.tz = 'Europe/Brussels'
         calendar = self.env['resource.calendar'].create({
             'name': 'KO TZ Calendar',
-            'tz': 'Europe/Brussels',
+            'company_id': self.env.company.id,
             'attendance_ids': [],
         })
         self.warehouse.opening_hours = calendar

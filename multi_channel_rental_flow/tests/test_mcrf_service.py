@@ -320,21 +320,17 @@ class TestMCRFService(TransactionCase):
         # Create a simple calendar: Mon-Fri 09:00-17:00
         calendar = self.env['resource.calendar'].create({
             'name': 'MCRF Test Calendar',
-            'tz': 'Europe/Brussels',
+            'company_id': self.env.company.id,
             'attendance_ids': [
                 (0, 0, {
-                    'name': 'Morning',
                     'dayofweek': str(self.tomorrow.date().weekday()),
                     'hour_from': 9.0,
                     'hour_to': 12.0,
-                    'day_period': 'morning',
                 }),
                 (0, 0, {
-                    'name': 'Afternoon',
                     'dayofweek': str(self.tomorrow.date().weekday()),
                     'hour_from': 13.0,
                     'hour_to': 17.0,
-                    'day_period': 'afternoon',
                 }),
             ],
         })
@@ -441,14 +437,12 @@ class TestMCRFService(TransactionCase):
         other_weekday = str((self.tomorrow.date().weekday() + 1) % 7)
         calendar = self.env['resource.calendar'].create({
             'name': 'MCRF Empty Day Calendar',
-            'tz': 'UTC',
+            'company_id': self.env.company.id,
             'attendance_ids': [
                 (0, 0, {
-                    'name': 'Other Day',
                     'dayofweek': other_weekday,
                     'hour_from': 9.0,
                     'hour_to': 17.0,
-                    'day_period': 'morning',
                 }),
             ],
         })
@@ -516,7 +510,7 @@ class TestMCRFService(TransactionCase):
             'type': 'consu',
             'is_storable': True,
             'list_price': 30.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
         })
@@ -676,9 +670,12 @@ class TestMCRFService(TransactionCase):
 
     def test_91_flow_timezone_from_calendar(self):
         """The slot timezone comes from the warehouse opening-hours calendar."""
+        # Odoo 20 removed resource.calendar.tz: a schedule is read in its
+        # company's timezone.
+        self.env.company.tz = 'Europe/Brussels'
         calendar = self.env['resource.calendar'].create({
             'name': 'MCRF TZ Calendar',
-            'tz': 'Europe/Brussels',
+            'company_id': self.env.company.id,
             'attendance_ids': [],
         })
         original_oh = self.warehouse.opening_hours

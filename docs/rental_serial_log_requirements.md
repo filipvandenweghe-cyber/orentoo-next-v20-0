@@ -105,7 +105,8 @@ picking/repair) row is not duplicated.
   contents snapshot.
 - **RSL-02 Returned** — on validation of the **return** receipt, for each serial move
   line: log `returned` with client, sales order, picking.
-- **RSL-03 Repair started** — when a repair order enters `under_repair`: log
+- **RSL-03 Repair started** — when a repair order enters `confirmed` (Odoo 20 dropped
+  `under_repair`): log
   `repair_start` for the serial.
 - **RSL-04 Repair done** — when a repair order reaches `done`: log `repair_done`;
   if a recycle/scrap location is set, add a "Recycled/scrapped" note.
@@ -158,7 +159,7 @@ e.g. `1× RSL Crate [RSL-0001], 40× RSL Glas`. Stored as text on the delivered 
 | T-03 | test_idempotent | re-running the delivery log does not create a duplicate row | RSL-08 |
 | T-04 | test_open_transaction | `action_open_transaction` opens the correct picking | RSL-10 |
 | T-05 | test_non_rental_not_logged | a non-rental order produces no log rows | RSL-06 |
-| T-06 | test_repair_events | `under_repair` logs `repair_start`; `done` logs `repair_done` | RSL-03, RSL-04 |
+| T-06 | test_repair_events | `confirmed` logs `repair_start`; `done` logs `repair_done` | RSL-03, RSL-04 |
 
 Tests are `post_install` (they rely on the full rental/stock/repair setup) and set
 `is_rental_order` explicitly on the test orders.

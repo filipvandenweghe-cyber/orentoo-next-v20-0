@@ -24,9 +24,14 @@ class CrewWorkDeclaration(models.Model):
         index=True, tracking=True)
 
     # --- context, mirrored from the shift (source of truth) --------------
+    # Odoo 20 turned planning.slot.resource_id / employee_id into the
+    # many2many resource_ids / employee_ids (a shift may staff several
+    # resources).  A work declaration stays per crew member, so we mirror the
+    # shift's first resource instead of using a related field.
     employee_id = fields.Many2one(
-        'hr.employee', related='slot_id.employee_id', store=True, index=True)
-    resource_id = fields.Many2one('resource.resource', related='slot_id.resource_id', store=True)
+        'hr.employee', compute='_compute_slot_resource', store=True, index=True)
+    resource_id = fields.Many2one(
+        'resource.resource', compute='_compute_slot_resource', store=True)
     project_id = fields.Many2one('project.project', related='slot_id.project_id', store=True)
     task_id = fields.Many2one('project.task', related='slot_id.task_id', store=True)
     sale_line_id = fields.Many2one('sale.order.line', related='slot_id.sale_line_id', store=True)
@@ -34,6 +39,12 @@ class CrewWorkDeclaration(models.Model):
     planned_start = fields.Datetime(related='slot_id.start_datetime', store=True)
     planned_end = fields.Datetime(related='slot_id.end_datetime', store=True)
     planned_hours = fields.Float(related='slot_id.allocated_hours', store=True, string="Planned Hours")
+
+    @api.depends('slot_id.resource_ids', 'slot_id.employee_ids')
+    def _compute_slot_resource(self):
+        for decl in self:
+            decl.resource_id = decl.slot_id.resource_ids[:1]
+            decl.employee_id = decl.slot_id.employee_ids[:1]
 
     # --- declared actuals -------------------------------------------------
     actual_start = fields.Datetime(tracking=True)

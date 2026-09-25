@@ -10,15 +10,16 @@
  *   • Component move   → read-only indent label (└─, …)
  *   • Normal move      → empty cell
  */
-import { Component } from "@odoo/owl";
+import { Component, useProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 export class RentalSetPickingFoldField extends Component {
     static template = "rental_set.PickingFoldField";
-    static props = {
+    // Owl 3 ignores a static `props`; the schema goes through useProps().
+    props = useProps({
         ...standardFieldProps,
-    };
+    });
 
     get isSetParent() {
         return !!this.props.record.data.rental_set_is_set;

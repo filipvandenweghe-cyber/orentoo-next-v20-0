@@ -1,6 +1,6 @@
 {
     'name': 'Sale Flow',
-    'version': '19.0.1.8.3',
+    'version': '20.0.1.8.3',
     'summary': 'Commercial baseline vs. logistics reality for sale/rental orders',
     'description': (
         'Sale Flow separates the confirmed commercial agreement (baseline '
@@ -30,8 +30,6 @@
 
     'data': [
         # Security
-        'security/ir.model.access.csv',
-        'security/sale_flow_security.xml',
 
         # Data
         'data/sale_flow_data.xml',
@@ -44,6 +42,8 @@
 
         # Wizards
         'wizard/sale_flow_lost_broken_wizard_views.xml',
+
+        'security/ir.access.csv',
     ],
 
     'installable': True,

@@ -1,6 +1,6 @@
 {
     'name': 'Multi-Channel Rental Flow',
-    'version': '19.0.1.3.1',
+    'version': '20.0.1.3.1',
     'summary': 'Multi-channel rental, event, add-on ordering and kiosk flow',
     'description': (
         'Provides a multi-channel ordering flow combining rental items, '
@@ -56,7 +56,6 @@
 
     'data': [
         # Security
-        'security/ir.model.access.csv',
 
         # Data
         'data/ir_sequence_data.xml',
@@ -75,6 +74,8 @@
         'views/templates/kiosk_order.xml',
         'views/templates/website_flow.xml',
         'views/menu.xml',
+
+        'security/ir.access.csv',
     ],
 
     'demo': [

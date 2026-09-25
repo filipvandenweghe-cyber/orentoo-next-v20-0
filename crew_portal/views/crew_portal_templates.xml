@@ -1,40 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Home cards -->
-    <template id="crew_portal_home" inherit_id="portal.portal_my_home">
-        <xpath expr="//div[@id='portal_common_category']" position="after">
-            <t t-set="crew_emp" t-value="request.env['hr.employee'].sudo().search(
-                [('user_id', '=', request.env.user.id), ('is_crew', '=', True)], limit=1)"/>
-            <div t-if="crew_emp" class="o_portal_category row g-2 mt-3" id="crew_portal_category">
-                <t t-call="portal.portal_docs_entry">
-                    <t t-set="title">My Availability</t>
-                    <t t-set="url" t-value="'/my/availability'"/>
-                    <t t-set="text">Tell us when you can work</t>
-                    <t t-set="config_card" t-value="True"/>
-                    <t t-set="icon" t-value="'/crew_portal/static/src/img/availability.png'"/>
-                    <t t-set="placeholder_count" t-value="'crew_availability_count'"/>
-                </t>
-                <t t-call="portal.portal_docs_entry">
-                    <t t-set="title">My Planning</t>
-                    <t t-set="url" t-value="'/my/planning'"/>
-                    <t t-set="text">Your upcoming shifts</t>
-                    <t t-set="config_card" t-value="True"/>
-                    <t t-set="icon" t-value="'/crew_portal/static/src/img/planning.png'"/>
-                    <t t-set="placeholder_count" t-value="'crew_planning_count'"/>
-                </t>
-                <t t-call="portal.portal_docs_entry">
-                    <t t-set="title">My Hours</t>
-                    <t t-set="url" t-value="'/my/hours'"/>
-                    <t t-set="text">Declare the hours you worked</t>
-                    <t t-set="config_card" t-value="True"/>
-                    <t t-set="icon" t-value="'/crew_portal/static/src/img/hours.png'"/>
-                    <t t-set="placeholder_count" t-value="'crew_hours_count'"/>
-                </t>
-            </div>
-        </xpath>
-    </template>
-
     <!-- No crew profile -->
     <template id="portal_not_crew" name="Crew: no profile">
         <t t-call="portal.portal_layout">

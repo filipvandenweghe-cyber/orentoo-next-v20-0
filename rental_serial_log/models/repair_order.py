@@ -9,10 +9,12 @@ class RepairOrder(models.Model):
         if 'state' not in vals or self.env.context.get('skip_rental_serial_log'):
             return res
         state = vals['state']
-        if state not in ('under_repair', 'done'):
+        # Odoo 20 removed the 'under_repair' state (draft -> confirmed ->
+        # done/cancel), so 'confirmed' is now the point the repair starts.
+        if state not in ('confirmed', 'done'):
             return res
         Log = self.env['rental.serial.log']
-        event = 'repair_start' if state == 'under_repair' else 'repair_done'
+        event = 'repair_start' if state == 'confirmed' else 'repair_done'
         for repair in self:
             lot = repair.lot_id
             if not lot or repair.product_id.tracking != 'serial':

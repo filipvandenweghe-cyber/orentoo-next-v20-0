@@ -26,7 +26,7 @@ class TestWorkDeclaration(TransactionCase):
 
     def _make_slot(self):
         return self.env['planning.slot'].create({
-            'resource_id': self.emp.resource_id.id,
+            'resource_ids': self.emp.resource_id.ids,
             'project_id': self.project.id,
             'task_id': self.task.id,
             'start_datetime': self.start,
@@ -122,7 +122,7 @@ class TestWorkDeclaration(TransactionCase):
         self.assertEqual(ctx['default_end_datetime'], self.end)
         # a slot created from that context is linked back to the task
         slot = self.env['planning.slot'].with_context(**ctx).create({
-            'resource_id': self.emp.resource_id.id})
+            'resource_ids': self.emp.resource_id.ids})
         self.assertEqual(slot.task_id, self.task)
         self.assertEqual(slot.project_id, self.project)
         self.assertIn(slot, self.task.planning_slot_ids)
@@ -183,7 +183,7 @@ class TestWorkDeclaration(TransactionCase):
 
     def test_08_approve_requires_project(self):
         slot = self.env['planning.slot'].create({
-            'resource_id': self.emp.resource_id.id,
+            'resource_ids': self.emp.resource_id.ids,
             'start_datetime': self.start, 'end_datetime': self.end})
         wd = slot._get_or_create_work_declaration()
         wd.write({'actual_start': self.start, 'actual_end': self.end})

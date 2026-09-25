@@ -45,34 +45,50 @@ class CrewPortal(CustomerPortal):
         return local.strftime('%Y-%m-%dT%H:%M')
 
     # ------------------------------------------------------------------
-    def _prepare_home_portal_values(self, counters):
-        values = super()._prepare_home_portal_values(counters)
-        emp = self._crew_employee()
-        if 'crew_availability_count' in counters:
-            values['crew_availability_count'] = request.env['crew.availability'].sudo().search_count(
-                [('employee_id', '=', emp.id)]) if emp else 0
-        if 'crew_planning_count' in counters:
-            values['crew_planning_count'] = request.env['planning.slot'].sudo().search_count(
-                [('resource_id', '=', emp.resource_id.id),
-                 ('end_datetime', '>=', fields.Datetime.now())]
-            ) if emp and emp.resource_id else 0
-        if 'crew_hours_count' in counters:
-            values['crew_hours_count'] = len(
-                self._crew_hours_slots(emp)['to_declare']) if emp else 0
-        return values
+    def _prepare_portal_counter_values(self, counter):
+        """Feed the crew badge counters.
+
+        Odoo 20 replaced the ``_prepare_home_portal_values(counters)`` hook by
+        ``_prepare_portal_counter_values(counter)``, which returns the
+        (model, domain, access) triple the portal counts itself.
+        """
+        if counter in ('crew_availability_count', 'crew_planning_count', 'crew_hours_count'):
+            emp = self._crew_employee()
+            if not emp:
+                return False, False, False
+            if counter == 'crew_availability_count':
+                return 'crew.availability', [('employee_id', '=', emp.id)], 'sudo'
+            if not emp.resource_id:
+                return False, False, False
+            if counter == 'crew_planning_count':
+                return 'planning.slot', [
+                    ('resource_ids', 'in', emp.resource_id.ids),
+                    ('end_datetime', '>=', fields.Datetime.now()),
+                ], 'sudo'
+            # crew_hours_count: started shifts still awaiting a declaration —
+            # the domain equivalent of _crew_hours_slots()['to_declare'].
+            return 'planning.slot', [
+                ('resource_ids', 'in', emp.resource_id.ids),
+                ('start_datetime', '<=', fields.Datetime.now()),
+                ('crew_unavailable_reported', '=', False),
+                '|', ('work_declaration_ids', '=', False),
+                     ('work_declaration_ids.state', 'in', self._CREW_EDITABLE_WD_STATES),
+            ], 'sudo'
+        return super()._prepare_portal_counter_values(counter)
 
     @http.route()
     def counters(self, counters, **kw):
         """Force the configured cards to 0 for this crew member so they stay
         hidden on the portal home.
 
-        This must run *after* the full ``_prepare_home_portal_values`` chain:
-        other apps (sale, account, purchase, ...) set their real count in their
-        own override, and depending on the controller MRO those bodies can run
-        after ours via ``super()`` and re-populate a count we zeroed. Overriding
-        the ``/my/counters`` route — which only the base ``portal`` defines —
-        makes our zeroing the last word, and we refresh the session cache the
-        template reads so the card is hidden on the very next render too.
+        This must run *after* the full counter chain: other apps (sale,
+        account, purchase, ...) return their own (model, domain, access) from
+        ``_prepare_portal_counter_values``, and the portal counts them here.
+        Overriding the ``/my/counters`` route — which only the base ``portal``
+        defines — makes our zeroing the last word, and we refresh the session
+        cache the template reads so the card is hidden on the very next render
+        too.  In Odoo 20 a card without its own ``is_config_card`` flag is
+        shown only when its counter is non-zero, so this still hides it.
         """
         res = super().counters(counters, **kw)
         emp = self._crew_employee()
@@ -175,7 +191,7 @@ class CrewPortal(CustomerPortal):
             return request.render('crew_portal.portal_not_crew', {'page_name': 'crew'})
         Slot = request.env['planning.slot'].sudo()
         slots = Slot.search([
-            ('resource_id', '=', emp.resource_id.id),
+            ('resource_ids', 'in', emp.resource_id.ids),
             ('end_datetime', '>=', fields.Datetime.now()),
         ], order='start_datetime') if emp.resource_id else Slot.browse()
         slot_rows = [{
@@ -198,7 +214,7 @@ class CrewPortal(CustomerPortal):
     def portal_cannot_work(self, slot_id, **post):
         emp = self._crew_employee()
         slot = request.env['planning.slot'].sudo().browse(slot_id)
-        if emp and slot.exists() and slot.resource_id.employee_id.id == emp.id:
+        if emp and slot.exists() and emp.id in slot.employee_ids.ids:
             slot.action_crew_report_cannot_work(post.get('reason'))
         return request.redirect('/my/planning')
 
@@ -220,7 +236,7 @@ class CrewPortal(CustomerPortal):
         if not (emp and emp.resource_id):
             return result
         slots = request.env['planning.slot'].sudo().search([
-            ('resource_id', '=', emp.resource_id.id),
+            ('resource_ids', 'in', emp.resource_id.ids),
             ('start_datetime', '<=', fields.Datetime.now()),
             ('crew_unavailable_reported', '=', False),
         ], order='start_datetime desc')
@@ -272,7 +288,7 @@ class CrewPortal(CustomerPortal):
     def portal_declare_hours(self, slot_id, **post):
         emp = self._crew_employee()
         slot = request.env['planning.slot'].sudo().browse(slot_id)
-        if emp and slot.exists() and slot.resource_id.employee_id.id == emp.id:
+        if emp and slot.exists() and emp.id in slot.employee_ids.ids:
             start = self._parse_portal_dt(post.get('actual_start'))
             end = self._parse_portal_dt(post.get('actual_end'))
             if start and end and start < end:

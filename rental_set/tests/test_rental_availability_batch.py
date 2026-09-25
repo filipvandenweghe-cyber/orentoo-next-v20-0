@@ -35,10 +35,10 @@ class TestRentalAvailabilityBatch(TransactionCase):
             cls.company.invalidate_recordset(['rental_loc_id'])
         cls.p1 = cls.env['product.product'].create({
             'name': 'Batch Widget 1', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
         cls.p2 = cls.env['product.product'].create({
             'name': 'Batch Widget 2', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, wh, product, qty):
@@ -61,7 +61,7 @@ class TestRentalAvailabilityBatch(TransactionCase):
     def _transfer(self, src, dst, product, qty, day_off):
         now = fields.Datetime.now()
         move = self.env['stock.move'].create({
-            'product_id': product.id, 'product_uom': product.uom_id.id,
+            'product_id': product.id, 'uom_id': product.uom_id.id,
             'product_uom_qty': qty,
             'location_id': src.lot_stock_id.id,
             'location_dest_id': dst.lot_stock_id.id,

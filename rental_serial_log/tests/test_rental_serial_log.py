@@ -17,7 +17,7 @@ class TestRentalSerialLog(TransactionCase):
         cls.partner = cls.env['res.partner'].create({'name': 'RSL Client'})
         cls.crate = cls.env['product.product'].create({
             'name': 'RSL Crate', 'type': 'consu', 'is_storable': True,
-            'tracking': 'serial', 'rent_ok': True})
+            'tracking': 'serial', 'rent_periodicity': 'days'})
         cls.glas = cls.env['product.product'].create({
             'name': 'RSL Glas', 'type': 'consu', 'is_storable': True})
         cls.serial = cls.env['stock.lot'].create({
@@ -65,7 +65,7 @@ class TestRentalSerialLog(TransactionCase):
               order=None):
         move_vals = {
             'product_id': product.id,
-            'product_uom_qty': qty, 'product_uom': product.uom_id.id,
+            'product_uom_qty': qty, 'uom_id': product.uom_id.id,
             'picking_id': picking.id,
             'location_id': picking.location_id.id,
             'location_dest_id': picking.location_dest_id.id,
@@ -156,7 +156,7 @@ class TestRentalSerialLog(TransactionCase):
             vals['picking_type_id'] = rt.id
         ro = self.env['repair.order'].create(vals)
 
-        ro.write({'state': 'under_repair'})
+        ro.write({'state': 'confirmed'})
         self.assertEqual(self.Log.search_count([
             ('lot_id', '=', self.serial.id),
             ('event_type', '=', 'repair_start')]), 1)

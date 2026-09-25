@@ -357,7 +357,11 @@ class SaleOrderLine(models.Model):
         # --- 1. Base price ---
         # >>> After Odoo 19.3 upgrade, review _get_base_rental_price_for_line
         if base_price_override is not None:
-            base_price = base_price_override
+            # Odoo 20 prices a rental line for the whole rental period, so
+            # every native base (standalone price, fixed set price, component
+            # sum) is duration-scaled; the coefficient applies the duration,
+            # so scale it back to a single period first.
+            base_price = svc._to_single_period_price(self, base_price_override)
         else:
             base_price = svc._get_base_rental_price_for_line(self)
             if not base_price:

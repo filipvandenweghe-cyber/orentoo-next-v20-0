@@ -28,7 +28,7 @@ work-declaration → timesheet flow.
     'author': "Orentoo",
     'website': "https://www.orentoo.com",
     'category': 'Human Resources/Planning',
-    'version': '19.0.4.17.0',
+    'version': '20.0.4.17.0',
     'license': 'LGPL-3',
     'depends': [
         'hr',
@@ -41,7 +41,6 @@ work-declaration → timesheet flow.
         'whatsapp',
     ],
     'data': [
-        'security/ir.model.access.csv',
         'data/crew_calendar_data.xml',
         'data/config_parameters.xml',
         'data/ir_sequence_data.xml',
@@ -60,6 +59,7 @@ work-declaration → timesheet flow.
         'views/hr_employee_views.xml',
         'views/res_config_settings_views.xml',
         'views/crew_menus.xml',
+        'security/ir.access.csv',
     ],
     'demo': [
         'demo/crew_demo.xml',

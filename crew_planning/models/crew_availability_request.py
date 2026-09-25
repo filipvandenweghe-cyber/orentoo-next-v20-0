@@ -115,8 +115,8 @@ class CrewAvailabilityRequest(models.Model):
             if req.task_id:
                 domain = ['|', ('crew_request_id', '=', req.id),
                           ('task_id', '=', req.task_id.id)]
-            slots = Slot.search(domain + [('resource_id', '!=', False)])
-            req.planned_headcount = len(slots.resource_id)
+            slots = Slot.search(domain + [('resource_ids', '!=', False)])
+            req.planned_headcount = len(slots.resource_ids)
             req.staffing_display = "%s / %s" % (req.planned_headcount, req.headcount_needed)
 
     # ------------------------------------------------------------------

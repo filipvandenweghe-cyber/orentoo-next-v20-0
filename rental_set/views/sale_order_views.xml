@@ -32,6 +32,9 @@
         <field name="name">sale.order.form.rental_set</field>
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
+        <!-- Applied after sale_stock (priority 20), which replaces
+             simple_qty_at_date_widget by qty_at_date_widget. -->
+        <field name="priority">25</field>
         <field name="arch" type="xml">
 
             <!-- ── 0. "On option" opt-in (rental quotations) ──────────────── -->

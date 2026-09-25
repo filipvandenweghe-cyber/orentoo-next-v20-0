@@ -17,7 +17,7 @@ class SaleOrder(models.Model):
         products.
         """
         tmpl = product.product_tmpl_id
-        if not tmpl.is_rental_set or not product.rent_ok:
+        if not tmpl.is_rental_set or not product.rent_periodicity:
             return super()._get_cart_and_free_qty(product)
 
         if tmpl.allow_out_of_stock_order:

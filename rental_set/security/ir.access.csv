@@ -1,0 +1,8 @@
+id,name,model_id,group_id/id,operation,domain
+access_rental_set_component_public,rental.set.component public,rental.set.component,base.group_public,r,
+access_rental_set_component_portal,rental.set.component portal,rental.set.component,base.group_portal,r,
+access_rental_set_component_user,rental.set.component user,rental.set.component,base.group_user,r,
+access_rental_set_component_sale_manager,rental.set.component sale manager,rental.set.component,sales_team.group_sale_manager,crud,
+access_rental_set_component_stock_manager,rental.set.component stock manager,rental.set.component,stock.group_stock_manager,crud,
+access_rental_set_add_component_wizard_sale_manager,rental.set.add.component.wizard sale manager,rental.set.add.component.wizard,sales_team.group_sale_manager,crud,
+access_rental_set_add_component_wizard_stock_manager,rental.set.add.component.wizard stock manager,rental.set.add.component.wizard,stock.group_stock_manager,crud,

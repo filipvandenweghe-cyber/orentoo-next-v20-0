@@ -48,7 +48,7 @@ be in the returnable set.
 ### 3.3 Repair status + override audit
 - **H3 — `stock.lot.rsl_repair_warning(serial_name)`** (RPC-callable): resolves
   the serial by `serial_unique_key`, and if it has an **active** repair
-  (`state in ('confirmed','under_repair')`) returns `{has_repair, repair_id,
+  (`state == 'confirmed'` — Odoo 20 dropped `under_repair`) returns `{has_repair, repair_id,
   reference, state, message}`. Repair state is read **live** (no duplicated
   flag). Never raises.
 - **H4 — `rental.serial.log.rsl_log_repair_override(serial, picking, repair)`**
@@ -83,7 +83,7 @@ in the check degrades to "no-repair" so it can never break scanning.
 115/115 (no regression from the new `button_validate` pre-check).
 - H1: delivered serial returnable; non-delivered blocked; resolver = pickedup.
 - H2: delivered ok; wrong serial blocked; unknown serial blocked **and no lot created**.
-- H3: draft repair not active; confirmed/under_repair active; clean/unknown never warn; done not active.
+- H3: draft repair not active; confirmed active; clean/unknown never warn; done not active.
 - H4: override audit logged once (idempotent).
 
 ## 6. Risks / notes

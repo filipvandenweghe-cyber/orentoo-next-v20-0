@@ -33,7 +33,7 @@ class TestRentalReturnOperationDate(TransactionCase):
             cls.company.invalidate_recordset(['rental_loc_id'])
         cls.prod = cls.env['product.product'].create({
             'name': 'Return Widget', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, qty):
@@ -222,7 +222,7 @@ class TestRentalReturnOperationDate(TransactionCase):
         of a multi-step flow), optionally linked to a rental line."""
         vals = {
             'product_id': self.prod.id,
-            'product_uom': self.prod.uom_id.id,
+            'uom_id': self.prod.uom_id.id,
             'product_uom_qty': qty,
             'location_id': src.id,
             'location_dest_id': dst.id,

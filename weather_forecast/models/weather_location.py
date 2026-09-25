@@ -223,9 +223,9 @@ class WeatherLocation(models.Model):
 
         # --- Validate prerequisites ---
         ICP = self.env['ir.config_parameter'].sudo()
-        api_key = ICP.get_param('weather_forecast.api_key', '').strip()
-        units = ICP.get_param('weather_forecast.units', 'metric')
-        lang = ICP.get_param('weather_forecast.language', 'en')
+        api_key = ICP.get_str('weather_forecast.api_key', '').strip()
+        units = ICP.get_str('weather_forecast.units', 'metric')
+        lang = ICP.get_str('weather_forecast.language', 'en')
 
         if not api_key:
             raise UserError(

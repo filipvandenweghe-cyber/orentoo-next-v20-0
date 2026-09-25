@@ -21,12 +21,12 @@ class TestOrderGeneration(TransactionCase):
             'company_id': cls.company.id,
         })
 
-        # Rental product (rent_ok must be True for is_rental to work)
+        # Rental product (rent_periodicity must be True for is_rental to work)
         cls.product_rental = cls.env['product.product'].create({
             'name': 'MCRF OG Test Kayak',
             'type': 'consu',
             'list_price': 50.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
         })

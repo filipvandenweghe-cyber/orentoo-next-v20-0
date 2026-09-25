@@ -262,7 +262,10 @@ class StockLot(models.Model):
     # A serial is considered tied up when it has a repair that is committed
     # but not yet finished.  We read the repair state live rather than caching
     # a flag, so there is a single source of truth.
-    _RSL_OPEN_REPAIR_STATES = ('confirmed', 'under_repair')
+    # Odoo 20 dropped the 'under_repair' state: a repair.order now goes
+    # draft -> confirmed -> done/cancel, so 'confirmed' is the committed but
+    # unfinished state.
+    _RSL_OPEN_REPAIR_STATES = ('confirmed',)
 
     def _rsl_open_repairs(self):
         """Open repair orders for these serial lots (empty if repair absent)."""

@@ -77,11 +77,11 @@
                         domain="[('event_type','in',['repair_start','repair_done'])]"/>
                 <separator/>
                 <filter name="today" string="Today"
-                        domain="[('date','&gt;=',datetime.datetime.combine(context_today(),datetime.time(0,0,0)))]"/>
+                        domain="[('date', '&gt;=', 'today')]"/>
                 <filter name="last_7_days" string="Last 7 Days"
-                        domain="[('date','&gt;=',(context_today()-datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                        domain="[('date', '&gt;=', 'today -7d')]"/>
                 <filter name="this_month" string="This Month"
-                        domain="[('date','&gt;=',context_today().strftime('%Y-%m-01'))]"/>
+                        domain="[('date', '&gt;=', '=1d')]"/>
                 <group>
                     <filter name="g_lot" string="Serial"
                             context="{'group_by':'lot_id'}"/>

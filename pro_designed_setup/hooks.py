@@ -202,30 +202,36 @@ def _ensure_warehouse_opening_hours(env, company, warehouse):
         )
         return
 
+    # Odoo 20 removed resource.calendar.tz: a calendar is now read in the
+    # company timezone, so carry the intended timezone on the company itself.
+    if not company.tz:
+        company.sudo().tz = OPENING_HOURS_TZ
+
     calendar = env['resource.calendar'].search([
         ('company_id', '=', company.id),
         ('name', '=', OPENING_HOURS_NAME),
     ], limit=1)
     if not calendar:
+        # Odoo 20: resource.calendar.attendance dropped 'name' and computes
+        # 'day_period'; resource.calendar dropped 'tz' (it now follows the
+        # company timezone, res.company.tz).
         attendance = [
             (0, 0, {
-                'name': '08:00 - 18:00',
                 'dayofweek': str(dow),
                 'hour_from': 8.0,
                 'hour_to': 18.0,
-                'day_period': 'morning',
             })
             for dow in range(7)  # Monday .. Sunday
         ]
         calendar = env['resource.calendar'].create({
             'name': OPENING_HOURS_NAME,
             'company_id': company.id,
-            'tz': OPENING_HOURS_TZ,
             'attendance_ids': attendance,
         })
         _logger.info(
-            'pro_designed_setup: created opening-hours calendar %s (id=%s, tz=%s).',
-            calendar.name, calendar.id, calendar.tz,
+            'pro_designed_setup: created opening-hours calendar %s (id=%s, '
+            'company tz=%s).',
+            calendar.name, calendar.id, company.tz,
         )
     warehouse.opening_hours = calendar.id
     _logger.info(

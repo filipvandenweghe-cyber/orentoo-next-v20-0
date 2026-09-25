@@ -22,7 +22,7 @@ class TestRentalPurchase(TransactionCase):
             'name': 'Rented Chair',
             'is_storable': True,
             'purchase_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'categ_id': cls.categ.id,
         })
@@ -357,7 +357,7 @@ class TestRentalPurchase(TransactionCase):
             'name': 'Hired Printer',
             'is_storable': True,
             'purchase_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'categ_id': self.categ.id,
         })
@@ -398,7 +398,7 @@ class TestRentalPurchase(TransactionCase):
                          "Return obligation must shrink to what was received.")
 
         if hasattr(self.env['product.product'], '_rental_available_qty') \
-                and self.company.rental_loc_id and self.product.rent_ok:
+                and self.company.rental_loc_id and self.product.rent_periodicity:
             during = self.product._rental_available_qty(
                 self.start, self.ret - timedelta(hours=1),
                 warehouse=wh, company=self.company, clamp=False)

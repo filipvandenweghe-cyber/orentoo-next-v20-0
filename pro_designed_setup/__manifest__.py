@@ -1,6 +1,6 @@
 {
     'name': 'Pro-Designed.com Company Setup',
-    'version': '19.0.1.0.1',
+    'version': '20.0.1.0.1',
     'category': 'Accounting/Localizations',
     'author': 'Pro-Designed.com',
     'summary': 'Sets up the Pro-Designed.com Belgian company (EUR, Belgian PCMN chart, VAT, fiscal positions).',

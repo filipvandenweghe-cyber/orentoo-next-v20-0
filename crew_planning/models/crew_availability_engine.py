@@ -56,11 +56,9 @@ class CrewAvailabilityEngine(models.AbstractModel):
     # Configuration
     # ------------------------------------------------------------------
     def _param_int(self, key, default):
-        val = self.env['ir.config_parameter'].sudo().get_param(key, default)
-        try:
-            return max(int(val), 0)
-        except (TypeError, ValueError):
-            return default
+        # Odoo 20 replaced ir.config_parameter.get_param() by typed getters
+        # (get_str / get_int / get_bool / get_float).
+        return max(self.env['ir.config_parameter'].sudo().get_int(key, default), 0)
 
     def _unavailability_months(self):
         return self._param_int('crew_planning.unavailability_horizon_months', 12)
@@ -219,7 +217,9 @@ class CrewAvailabilityEngine(models.AbstractModel):
                     'company_id': resource.company_id.id,
                     'date_from': s,
                     'date_to': e,
-                    'time_type': 'leave',
+                    # Odoo 20 replaced resource.calendar.leaves.time_type
+                    # ('leave'/'other') by count_as ('absence'/'working_time').
+                    'count_as': 'absence',
                     'crew_managed': True,
                 })
 

@@ -1,6 +1,6 @@
 {
     'name': 'Coefficient & Dynamic Pricing',
-    'version': '19.0.1.1.0',
+    'version': '20.0.1.1.0',
     'summary': 'Dynamic and degressive pricing for rental orders',
     'description': (
         'This module allows rental prices to use duration coefficients '
@@ -23,7 +23,6 @@
 
     'data': [
         # Security
-        'security/ir.model.access.csv',
 
         # Data
         'data/rental_coefficient_data.xml',
@@ -36,6 +35,8 @@
         'views/res_partner_views.xml',
         'views/sale_order_views.xml',
         'views/menu.xml',
+
+        'security/ir.access.csv',
     ],
 
     'demo': [
