@@ -1,0 +1,13 @@
+id,name,model_id,group_id/id,operation,domain
+access_rental_flow_profile_user,multi.channel.rental.profile.user,multi.channel.rental.profile,sales_team.group_sale_salesman,r,
+access_rental_flow_profile_manager,multi.channel.rental.profile.manager,multi.channel.rental.profile,sales_team.group_sale_manager,crud,
+access_rental_flow_duration_option_user,multi.channel.rental.duration.option.user,multi.channel.rental.duration.option,sales_team.group_sale_salesman,r,
+access_rental_flow_duration_option_manager,multi.channel.rental.duration.option.manager,multi.channel.rental.duration.option,sales_team.group_sale_manager,crud,
+access_rental_dossier_user,rental.dossier.user,rental.dossier,sales_team.group_sale_salesman,cru,
+access_rental_dossier_manager,rental.dossier.manager,rental.dossier,sales_team.group_sale_manager,crud,
+access_rental_dossier_slot_user,rental.dossier.slot.user,rental.dossier.slot,sales_team.group_sale_salesman,cru,
+access_rental_dossier_slot_manager,rental.dossier.slot.manager,rental.dossier.slot,sales_team.group_sale_manager,crud,
+access_rental_dossier_item_user,rental.dossier.item.user,rental.dossier.item,sales_team.group_sale_salesman,cru,
+access_rental_dossier_item_manager,rental.dossier.item.manager,rental.dossier.item,sales_team.group_sale_manager,crud,
+access_rental_flow_hero_image,multi.channel.rental.hero.image,multi.channel.rental.hero.image,base.group_user,crud,
+access_rental_flow_hero_image_public,multi.channel.rental.hero.image public,multi.channel.rental.hero.image,base.group_public,r,

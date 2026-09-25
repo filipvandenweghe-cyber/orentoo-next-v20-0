@@ -1,6 +1,6 @@
 # Orentoo — Project Memory (for Claude)
 
-Odoo **19.0** on **Odoo.sh**. Custom rental modules under `/home/odoo/src/user`.
+Odoo **20.0** on **Odoo.sh**. Custom rental modules under `/home/odoo/src/user`.
 This file is the durable context; the `docs/*_requirements.{md,docx}` files hold the
 full rationale per feature. Read this first.
 
@@ -116,11 +116,87 @@ full rationale per feature. Read this first.
     leaving `rental_loc`: rejects unknown `lot_name` (resolved via `serial_unique_key`) and
     non-returnable lots *before* super → prevents server-side lot creation + friendly message.
 - **Repair scan warning** (non-blocking): `stock.lot.rsl_repair_warning(serial)` reports an
-  **active** repair (`state in ('confirmed','under_repair')`, read live — no duplicated flag);
+  **active** repair (`state == 'confirmed'` — Odoo 20 dropped `under_repair`; read live, no duplicated flag);
   the reusable JS modal (`rental_scanning/.../repair_warning.js`, wired into
   `_processBarcode` → fires on PPB **and** native serial scans) asks **Proceed Anyway**/Cancel;
   proceeding logs a `repair_override` event via `rental.serial.log.rsl_log_repair_override(...)`.
 - Docs: `docs/rental_return_serial_requirements.md`.
+
+## Odoo 20 migration notes (from 19.0)
+Applied across all modules; each change is commented at the call site.
+
+- **Security**: `ir.model.access.csv` + `ir.rule` are gone — one `security/ir.access.csv`
+  per module (`model_id` holds the model *name*; a row with an empty `group_id` is a
+  restriction, i.e. the old global rule). Converted with Odoo's own
+  `odoo-bin upgrade_code --script 19.4-00-ir-access`.
+- **Rental products**: `product.rent_ok` (bool) → **`rent_periodicity`** (selection
+  `hours/days/nights/weeks`; falsy = not rentable). Rental pricing moved off
+  `product.pricing` onto the pricelist + periodicity.
+- **Rental price base** (`rental_coefficient_dynamic_pricing`): `_get_pricelist_price()`
+  now returns the price of the **whole rental period**. The coefficient engine wants the
+  price of **one** period (it applies the duration itself), so
+  `rental.pricing.service._to_single_period_price()` divides the periods back out. It is
+  applied to *every* base: standalone line, fixed set parent, component sum.
+  The "Update Rental Prices" button and `sale.order.show_update_duration` are gone —
+  the partner onchange recomputes softly; force with `order._recompute_rental_prices()`.
+- **Rental returns**: the `stock.return.picking` wizard is gone. A return is
+  `picking._create_return()` (a copy), per-move values from
+  `_prepare_return_move_default_values()`. **The rental return picking is now created with
+  the delivery and linked to it via `return_id`** (which also propagates to back-orders),
+  and `sale_stock_renting._create_return()` deliberately deletes rental moves so no second
+  return can be made. Consequence for `sale_flow`: the return reconciliation now sees
+  multi-leg returns, so it subtracts **what already came back** from the expected demand
+  (see `_reconcile_return_pickings`), and the lost/broken scrap runs with
+  `skip_sale_flow_sync=True` so the wizard stays the only one reducing the demand.
+- **Stock**: `stock.move.product_uom` → `uom_id`; `stock.move.scrap_id` → `is_scrap`;
+  `stock.scrap` model removed (a scrap is a `stock.move` with `is_scrap=True` +
+  `_action_scrap()`); `uom.uom.rounding` removed (use `uom.compare/round/is_zero`, which
+  use the *Product Unit* decimal precision).
+- **Repair**: `repair.order.state` lost `under_repair` (draft → confirmed → done/cancel);
+  "committed but unfinished" is now `confirmed`.
+- **Resource/planning**: `resource.calendar.tz` removed (the calendar follows
+  `res.company.tz`); `resource.calendar.attendance` lost `name` and computes `day_period`;
+  `resource.calendar.leaves.time_type` → `count_as` (`absence`/`working_time`);
+  `_work_intervals_batch(resources=…)` → `resources_per_tz=resource._get_resources_per_tz()`;
+  **`planning.slot.resource_id`/`employee_id` → many2many `resource_ids`/`employee_ids`**
+  (a shift may staff several resources — `crew.work.declaration` mirrors the first one).
+- **Portal**: the home page is data-driven — a card is a `portal.entry` record, visibility
+  comes from `PortalEntry._filter_visible_portal_cards()` (crew_portal overrides it) and
+  counters from `_prepare_portal_counter_values(counter)` returning
+  `(model, domain, access)`. `_prepare_home_portal_values(counters)` is gone. Cards are
+  always rendered and hidden with a CSS class, so never assert on their absence in HTML.
+- **Payment**: `payment.provider.state` → `active` (archived = disabled) + `is_live`;
+  `pos.printer.epson_printer_ip` → `printer_ip` and `proxy_ip` is gone. Writing on
+  `payment.transaction` needs `payment_safe_write=True` in the context, and
+  `_post_process()` must be reached through `_post_process_with_lock()`.
+- **Misc**: `ir.config_parameter.get_param/set_param` → typed `get_str/get_int/get_bool/
+  get_float`; `ir.actions.report.report_file` removed; QWeb `t-call` takes named
+  arguments (`title.translate="…"`, `url.f="…"`) instead of nested `t-set`.
+- **Views**: list fields can sit inside `<column>` wrappers, so prefer `//field[...]` over
+  `/field[...]`; `sale_stock`'s inherited SO form has priority 20 (rental_set's must be
+  higher to see `qty_at_date_widget`); `categ_id` is no longer on the product variant list.
+- **Owl 3**: templates reference the component explicitly (`this.x`), `t-esc` → `t-out`,
+  `useState` → `proxy`, `useService("action")` → `usePlugin(ActionPlugin)`, and
+  `onWillRender` comes from `@web/owl2/utils`. Migrated with
+  `odoo-bin upgrade_code --script owl3-migration` — but the codemod does **not**
+  cover these, which only blow up at render time:
+  - a **`static props` / `defaultProps` throws**; declare the schema as an instance
+    field: `props = useProps({ ...standardFieldProps, x: t.string().optional() })`.
+  - `QtyAtDateWidget.calcData` is a **computed signal** fed by the RETURN value of
+    `initCalcData()` — an override must `return calcData`, never mutate
+    `this.calcData`; templates read it as `this.calcData()`.
+  - `ListRenderer.sortDrop(dataRowId, {element, previous})` — the old
+    `(dataRowId, dataGroupId, params)` triple is gone.
+  - `StaticList.resequence([movedId], targetId)` — the moved id is an **array** and
+    the options argument (`{handleField}`) no longer exists.
+  Nothing in Python catches these: `rental_set/tests/test_rental_set_ui.py` opens a
+  real quotation in headless Chrome, but it needs a browser the AI sandbox lacks, so
+  it is tagged `-standard` — run it with `--test-tags rental_set_ui`.
+
+**Still open (needs a business decision):** a user clicking *Return* on a rental delivery
+in Odoo 20 gets an empty return picking (rental moves are stripped by design). Decide
+whether the rental round-trip return picking is the only supported return path, and drop
+or re-target the `sale_flow` "return of the delivery" handling accordingly.
 
 ## Requirement docs
 - `docs/rental_availability_requirements.{md,docx}`

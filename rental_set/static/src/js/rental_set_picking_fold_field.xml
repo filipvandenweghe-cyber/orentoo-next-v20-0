@@ -7,30 +7,30 @@
         Mirrors the sale order's rental_set.FoldField exactly.
     -->
     <t t-name="rental_set.PickingFoldField">
-        <t t-if="isSetParent and isSetComponent">
+        <t t-if="this.isSetParent and this.isSetComponent">
             <!-- Nested set: indent prefix + chevron button -->
-            <span class="text-muted me-1 small" t-esc="indentLabel"/>
+            <span class="text-muted me-1 small" t-out="this.indentLabel"/>
             <button type="button"
                     class="btn btn-link p-0 border-0 align-baseline"
-                    t-att-title="isFolded ? 'Expand components' : 'Collapse components'"
-                    t-on-click.stop.prevent="onToggle">
+                    t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
+                    t-on-click.stop.prevent="this.onToggle">
                 <i class="fa fa-fw"
-                   t-att-class="isFolded ? 'fa-chevron-right text-muted' : 'fa-chevron-down text-primary'"/>
+                   t-att-class="this.isFolded ? 'fa-chevron-right text-muted' : 'fa-chevron-down text-primary'"/>
             </button>
         </t>
-        <t t-elif="isSetParent">
+        <t t-elif="this.isSetParent">
             <!-- Top-level set parent: chevron only -->
             <button type="button"
                     class="btn btn-link p-0 border-0 align-baseline"
-                    t-att-title="isFolded ? 'Expand components' : 'Collapse components'"
-                    t-on-click.stop.prevent="onToggle">
+                    t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
+                    t-on-click.stop.prevent="this.onToggle">
                 <i class="fa fa-fw"
-                   t-att-class="isFolded ? 'fa-chevron-right text-muted' : 'fa-chevron-down text-primary'"/>
+                   t-att-class="this.isFolded ? 'fa-chevron-right text-muted' : 'fa-chevron-down text-primary'"/>
             </button>
         </t>
-        <t t-elif="isSetComponent">
+        <t t-elif="this.isSetComponent">
             <!-- Leaf component: indent label, not clickable -->
-            <span class="text-muted small" t-esc="indentLabel"/>
+            <span class="text-muted small" t-out="this.indentLabel"/>
         </t>
         <!-- Normal move: render nothing -->
     </t>

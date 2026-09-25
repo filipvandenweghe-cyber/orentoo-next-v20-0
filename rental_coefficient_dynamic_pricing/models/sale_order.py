@@ -19,15 +19,24 @@ class SaleOrder(models.Model):
     })
 
     @api.onchange('partner_id')
-    def _onchange_partner_show_update_rental_prices(self):  # RI05
-        """Show the 'Update Rental Prices' button when the customer changes.
+    def _onchange_partner_recompute_rental_prices(self):  # RI05
+        """Refresh rental prices when the customer changes.
 
         Changing the customer may affect which coefficient table is
         selected (customer-allowed tables) and whether dynamic pricing
         is active for this customer.
+
+        Odoo 20 removed the rental "Update Rental Prices" button and its
+        ``show_update_duration`` flag — prices are recomputed straight from
+        the onchange, the way the standard pricelist onchange does.  Like the
+        save-time refresh below this is a *soft* recompute, so a hand-typed
+        unit price is preserved.
         """
-        if any(line.is_rental for line in self.order_line):
-            self.show_update_duration = True
+        lines = self.order_line.filtered(
+            lambda line: line.is_rental and not line.display_type
+        )
+        if lines:
+            lines.with_context(rental_save_recompute=True)._compute_price_unit()
 
     def write(self, vals):
         """Auto-refresh rental prices on save, like the button — but softly.
@@ -37,14 +46,15 @@ class SaleOrder(models.Model):
         press "Update Rental Prices" after changing the period, customer,
         pricelist or a line.  [RI08]
 
-        Unlike the button (``action_update_rental_prices`` →
+        Unlike a forced recomputation (``_recompute_rental_prices`` →
         ``force_price_recomputation``), this runs *without* forcing: any line
         whose unit price was typed by hand is left untouched.  Both guards
         below cooperate to preserve it — super()._compute_price_unit skips a
         line when ``technical_price_unit`` diverges from ``price_unit`` (a
         hand-typed price), and the engine additionally skips
-        ``manual_price_override`` lines.  The explicit button still
-        force-resets everything, manual prices included.
+        ``manual_price_override`` lines.  An explicit
+        ``_recompute_rental_prices()`` still force-resets everything, manual
+        prices included.
         """
         res = super().write(vals)
         self._auto_recompute_rental_prices_on_save(vals.keys())

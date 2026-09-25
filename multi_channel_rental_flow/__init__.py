@@ -220,8 +220,8 @@
 # KL02  Lookup form: dossier/order number + email address.
 # KL03  Only paid dossiers return printable tickets.
 # KL04  Ticket cards displayed with product, timeslot, event info.
-# KL05  Print via Epson ePOS (reuses pos.printer.epson_printer_ip).
-# KL06  Print via IoT Box/proxy (reuses pos.printer.proxy_ip).
+# KL05  Print via Epson ePOS (reuses pos.printer.printer_ip).
+# KL06  Print via IoT Box/proxy (removed in Odoo 20: pos.printer has no proxy_ip).
 # KL07  Browser print fallback when printer_mode = 'browser'.
 # KL08  Mark-as-printed after successful kiosk print.
 # KL09  Respects profile.enable_ticket_lookup_printing.

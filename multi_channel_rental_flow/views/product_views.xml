@@ -109,7 +109,8 @@
         <field name="model">product.product</field>
         <field name="inherit_id" ref="product.product_product_tree_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='categ_id']" position="after">
+            <!-- Odoo 20 dropped categ_id from the product variant list view. -->
+            <xpath expr="//list" position="inside">
                 <field name="use_in_multi_channel_rental_flow" optional="hide"
                        string="In MC Flow"/>
                 <field name="multi_channel_item_role" optional="hide"

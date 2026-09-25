@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { Component, onWillRender, onMounted } from "@odoo/owl";
+import { Component, computed, onMounted, t, useProps } from "@odoo/owl";
 import { usePopover } from "@web/core/popover/popover_hook";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
 import {
@@ -25,16 +25,19 @@ import { _t } from "@web/core/l10n/translation";
  * The red/green indicator reflects whether the ORDER can be fulfilled.
  */
 patch(QtyAtDateWidget.prototype, {
+    // Odoo 20 / Owl 3: `calcData` is a computed signal fed by the RETURN
+    // value of initCalcData(), so we must adjust and return that object
+    // instead of mutating `this.calcData`.
     initCalcData() {
-        super.initCalcData();
+        const calcData = super.initCalcData();
         const { data } = this.props.record;
-        if (!data.scheduled_date || !data.product_id) return;
+        if (!data.scheduled_date || !data.product_id) return calcData;
 
         // Skip aggregate demand check for set lines — they have no real
         // stock (availability is computed from components via
         // set_availability, not free_qty_today).  This applies to both
         // top-level sets AND nested sets (is_set + is_set_component).
-        if (data.is_set) return;
+        if (data.is_set) return calcData;
 
         const orderDemand = data.order_product_demand || 0;
         const lineQty = data.product_uom_qty || 0;
@@ -43,8 +46,8 @@ patch(QtyAtDateWidget.prototype, {
             : data.virtual_available_at_date;
 
         const markIssue = () => {
-            this.calcData.will_be_fulfilled = false;
-            this.calcData.forecasted_issue =
+            calcData.will_be_fulfilled = false;
+            calcData.forecasted_issue =
                 ['draft', 'sent'].includes(data.state) ? !data.is_mto : true;
         };
 
@@ -68,6 +71,7 @@ patch(QtyAtDateWidget.prototype, {
                 }
             }
         }
+        return calcData;
     },
 });
 
@@ -390,11 +394,12 @@ patch(QtyAtDatePopover.prototype, {
  */
 export class RentalSetAvailPopover extends Component {
     static template = "rental_set.RentalSetAvailPopover";
-    static props = {
-        record: Object,
-        calcData: Object,
-        close: Function,
-    };
+    // Owl 3 ignores a static `props`; the schema goes through useProps().
+    props = useProps({
+        record: t.object(),
+        calcData: t.object(),
+        close: t.function(),
+    });
 }
 
 /**
@@ -404,37 +409,37 @@ export class RentalSetAvailPopover extends Component {
 export class RentalSetQtyWidget extends Component {
     static components = { Popover: RentalSetAvailPopover };
     static template = "rental_set.RentalSetQtyWidget";
-    static props = { ...standardWidgetProps };
+    props = useProps({ ...standardWidgetProps });
+
+    // Odoo 20 / Owl 3: same shape as the standard QtyAtDateWidget — a
+    // computed signal fed by the return value of initCalcData(), so the
+    // icon re-renders whenever the line's data changes.
+    calcData = computed(() => this.initCalcData());
 
     setup() {
         this.popover = usePopover(this.constructor.components.Popover, {
             position: "top",
         });
-        this.calcData = {};
-        onWillRender(() => this.initCalcData());
     }
 
     initCalcData() {
+        const calcData = {};
         const data = this.props.record.data;
         const isSetParent = data.is_set && !data.is_set_component;
-        this.calcData.isSetParent = isSetParent;
+        calcData.isSetParent = isSetParent;
 
-        if (!isSetParent) {
-            this.calcData.show = false;
-            return;
-        }
-
-        if (this.props.record.isNew) {
-            this.calcData.show = false;
-            return;
+        if (!isSetParent || this.props.record.isNew) {
+            calcData.show = false;
+            return calcData;
         }
 
         const requested = data.product_uom_qty || 0;
         const available = data.set_availability || 0;
-        this.calcData.show = requested > 0;
-        this.calcData.available = available;
-        this.calcData.requested = requested;
-        this.calcData.sufficient = available >= requested;
+        calcData.show = requested > 0;
+        calcData.available = available;
+        calcData.requested = requested;
+        calcData.sufficient = available >= requested;
+        return calcData;
     }
 
     showPopup(ev) {
@@ -443,7 +448,8 @@ export class RentalSetQtyWidget extends Component {
         }
         this.popover.open(ev.currentTarget, {
             record: this.props.record,
-            calcData: this.calcData,
+            // `calcData` is a computed signal: pass its value, not the signal.
+            calcData: { ...this.calcData() },
         });
     }
 }

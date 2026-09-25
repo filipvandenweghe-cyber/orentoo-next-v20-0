@@ -207,7 +207,7 @@ class PurchaseOrder(models.Model):
                 move = StockMove.create({
                     'product_id': line.product_id.id,
                     'product_uom_qty': line.product_qty,
-                    'product_uom': line.product_uom_id.id,
+                    'uom_id': line.uom_id.id,
                     'location_id': src.id,
                     'location_dest_id': dest.id,
                     'picking_type_id': pick_type.id,

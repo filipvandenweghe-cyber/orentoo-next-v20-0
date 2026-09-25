@@ -124,7 +124,7 @@ the same (now repair-aware) component availability, with own-demand handled corr
   stock is not yet rentable → the raw figure can **over-count** during multi-step
   reception.
 - **Repairs:** `repair.order.move_id` is created **only in `action_repair_done`**. While
-  `confirmed`/`under_repair` there is **no stock move**, so the forecast never deducts
+  `confirmed` (Odoo 20 dropped `under_repair`) there is **no stock move**, so the forecast never deducts
   it. Usable fields: `product_id`, `lot_id`, `product_qty`, `state`, `create_date`,
   `schedule_date`, `location_id`.
 - **Rental "At Customer"** is an internal location (company rental location,

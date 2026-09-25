@@ -1,6 +1,6 @@
 {
     'name': 'Rental Serial Log',
-    'version': '19.0.1.0.10',
+    'version': '20.0.1.0.10',
     'summary': 'Per-serial rental traceability: delivered / returned / repaired',
     'description': (
         'A persisted usage log per serial-tracked lot.  Records, at rental '
@@ -27,10 +27,10 @@
         'repair',              # repair.order
     ],
     'data': [
-        'security/ir.model.access.csv',
         'data/serial_duplicate_audit.xml',
         'views/rental_serial_log_views.xml',
         'views/stock_lot_views.xml',
+        'security/ir.access.csv',
     ],
     'post_init_hook': '_check_serial_duplicates',
     'installable': True,

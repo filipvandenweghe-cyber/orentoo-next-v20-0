@@ -611,16 +611,22 @@ class RentalDossier(models.Model):
         Creates a transaction (if needed), sets it to done, and
         triggers post-processing — just as if the customer completed
         the payment on the demo provider's hosted page.
+
+        Odoo 20 forbids writing on payment.transaction unless the context
+        carries ``payment_safe_write``; forcing a demo payment done is
+        exactly such a deliberate, rollback-tolerant write.  Post-processing
+        must go through ``_post_process_with_lock()``, which locks the
+        transaction, runs ``_post_process()`` once and sets that context.
         """
         self.ensure_one()
         tx = self.action_start_payment()
 
         if tx.state == 'draft':
-            tx._set_done()
-            tx._post_process()
+            tx.with_context(payment_safe_write=True)._set_done()
+            tx._post_process_with_lock()
         elif tx.state in ('pending', 'authorized'):
-            tx._set_done()
-            tx._post_process()
+            tx.with_context(payment_safe_write=True)._set_done()
+            tx._post_process_with_lock()
 
         return True
 
@@ -633,19 +639,20 @@ class RentalDossier(models.Model):
         if self.profile_id and self.profile_id.default_payment_provider_id:
             return self.profile_id.default_payment_provider_id
 
-        # Demo provider for testing
+        # Demo provider for testing.  Odoo 20 dropped
+        # payment.provider.state (disabled/test/enabled): a provider is now
+        # enabled when it is active (archived == disabled) and 'is_live'
+        # tells test mode from live mode.  Archived records are already
+        # excluded by the default search, so no explicit condition is needed.
         if self.profile_id and self.profile_id.allow_demo_payment:
             demo = self.env['payment.provider'].search(
-                [('code', '=', 'demo'), ('state', '!=', 'disabled')],
-                limit=1,
+                [('code', '=', 'demo')], limit=1,
             )
             if demo:
                 return demo
 
         # Any enabled provider
-        provider = self.env['payment.provider'].search(
-            [('state', '!=', 'disabled')], limit=1,
-        )
+        provider = self.env['payment.provider'].search([], limit=1)
         if not provider:
             raise UserError(_("No payment provider configured."))
         return provider

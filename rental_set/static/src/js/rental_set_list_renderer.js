@@ -32,9 +32,9 @@
  *     If the component landed outside its parent's range (isWithinParentRange),
  *     the move is immediately reverted.
  */
-import { onWillRender } from "@odoo/owl";
 import { patch } from "@web/core/utils/patch";
 import { SaleOrderLineListRenderer } from "@sale/js/sale_order_line_field/sale_order_line_field";
+import { onWillRender } from "@web/owl2/utils";
 
 patch(SaleOrderLineListRenderer.prototype, {
 
@@ -255,7 +255,9 @@ patch(SaleOrderLineListRenderer.prototype, {
      * 2. Component moved → validate position; if it landed outside its
      *    parent's range resequence it back to its original position.
      */
-    async sortDrop(dataRowId, dataGroupId, params) {
+    async sortDrop(dataRowId, params) {
+        // Odoo 20 changed the signature: sortDrop(dataRowId, {element, previous})
+        // — the old (dataRowId, dataGroupId, params) triple is gone.
         const records = this.props.list.records;
 
         // Identify the moved record
@@ -279,7 +281,7 @@ patch(SaleOrderLineListRenderer.prototype, {
             : [];
 
         // ── Standard drop ─────────────────────────────────────────────────
-        await super.sortDrop(dataRowId, dataGroupId, params);
+        await super.sortDrop(dataRowId, params);
 
         // ── Set parent: move descendants to follow ────────────────────────
         if (descendantResIds.length) {
@@ -293,9 +295,9 @@ patch(SaleOrderLineListRenderer.prototype, {
                 // Fresh lookup by resId after each await (list may have re-sorted)
                 const childRecord = this.props.list.records.find((r) => r.resId === resId);
                 if (!childRecord) continue;
-                await this.props.list.resequence(String(childRecord.id), lastId, {
-                    handleField: this.props.list.handleField,
-                });
+                // Odoo 20: StaticList.resequence([movedId], targetId) — the
+                // moved id is an array and there is no options argument.
+                await this.props.list.resequence([String(childRecord.id)], lastId);
                 lastId = String(childRecord.id);
             }
             return;
@@ -314,9 +316,8 @@ patch(SaleOrderLineListRenderer.prototype, {
                     ? this.props.list.records.find((r) => r.resId === prevResId)
                     : null;
                 await this.props.list.resequence(
-                    String(currentMovedRecord.id),
-                    prevRecord ? String(prevRecord.id) : null,
-                    { handleField: this.props.list.handleField }
+                    [String(currentMovedRecord.id)],
+                    prevRecord ? String(prevRecord.id) : null
                 );
             }
         }

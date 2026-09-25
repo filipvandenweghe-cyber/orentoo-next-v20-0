@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!--
+        Odoo 20 replaced the hand-written portal.portal_docs_entry t-calls on
+        portal.portal_my_home by data-driven portal.entry records.  Visibility
+        is decided by PortalEntry._filter_visible_portal_cards() (overridden in
+        models/portal_entry.py to only show these to crew members) and by the
+        session counters fed by _prepare_portal_counter_values().
+    -->
+    <record id="portal_entry_crew_availability" model="portal.entry">
+        <field name="name">My Availability</field>
+        <field name="description">Tell us when you can work</field>
+        <field name="url">/my/availability</field>
+        <field name="image" type="bytes" file="crew_portal/static/src/img/availability.png"/>
+        <field name="placeholder_count">crew_availability_count</field>
+        <field name="category">crew_category</field>
+        <field name="sequence" eval="310"/>
+    </record>
+
+    <record id="portal_entry_crew_planning" model="portal.entry">
+        <field name="name">My Planning</field>
+        <field name="description">Your upcoming shifts</field>
+        <field name="url">/my/planning</field>
+        <field name="image" type="bytes" file="crew_portal/static/src/img/planning.png"/>
+        <field name="placeholder_count">crew_planning_count</field>
+        <field name="category">crew_category</field>
+        <field name="sequence" eval="320"/>
+    </record>
+
+    <record id="portal_entry_crew_hours" model="portal.entry">
+        <field name="name">My Hours</field>
+        <field name="description">Declare the hours you worked</field>
+        <field name="url">/my/hours</field>
+        <field name="image" type="bytes" file="crew_portal/static/src/img/hours.png"/>
+        <field name="placeholder_count">crew_hours_count</field>
+        <field name="category">crew_category</field>
+        <field name="sequence" eval="330"/>
+    </record>
+</odoo>

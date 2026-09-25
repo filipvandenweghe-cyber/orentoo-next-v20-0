@@ -19,9 +19,9 @@
  * 3. `getRowClass(record)` appends `o_rental_set_hidden` to component
  *    rows that should be hidden by a collapsed ancestor.
  */
-import { onWillRender } from "@odoo/owl";
 import { patch } from "@web/core/utils/patch";
 import { MovesListRenderer } from "@stock/views/picking_form/stock_move_one2many";
+import { onWillRender } from "@web/owl2/utils";
 
 patch(MovesListRenderer.prototype, {
 

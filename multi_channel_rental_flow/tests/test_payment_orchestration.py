@@ -35,7 +35,7 @@ class TestPaymentOrchestration(TransactionCase):
             'type': 'consu',
             'is_storable': True,
             'list_price': 50.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
         })
@@ -54,11 +54,13 @@ class TestPaymentOrchestration(TransactionCase):
         })
 
         # Demo provider — ships disabled by default, enable it for tests.
-        cls.demo_provider = cls.env['payment.provider'].search(
-            [('code', '=', 'demo')], limit=1,
-        )
-        if cls.demo_provider and cls.demo_provider.state == 'disabled':
-            cls.demo_provider.write({'state': 'test'})
+        # Odoo 20 replaced payment.provider.state by 'active' (archived ==
+        # disabled) + 'is_live' (live vs. test mode).
+        cls.demo_provider = cls.env['payment.provider'].with_context(
+            active_test=False,
+        ).search([('code', '=', 'demo')], limit=1)
+        if cls.demo_provider and not cls.demo_provider.active:
+            cls.demo_provider.write({'active': True, 'is_live': False})
         cls.demo_method = cls.env['payment.method'].search([], limit=1)
 
         # Profile with demo payment
@@ -326,8 +328,8 @@ class TestPaymentOrchestration(TransactionCase):
         tx = dossier.action_start_payment()
 
         # Simulate provider callback: set tx to done
-        tx._set_done()
-        tx._post_process()
+        tx.with_context(payment_safe_write=True)._set_done()
+        tx._post_process_with_lock()
 
         self.assertEqual(dossier.state, 'paid')
 
@@ -339,8 +341,8 @@ class TestPaymentOrchestration(TransactionCase):
         tx = dossier.action_start_payment()
 
         # Simulate cancellation
-        tx._set_canceled()
-        tx._post_process()
+        tx.with_context(payment_safe_write=True)._set_canceled()
+        tx._post_process_with_lock()
 
         self.assertEqual(dossier.state, 'payment_failed')
 

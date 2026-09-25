@@ -192,7 +192,7 @@ class StockPicking(models.Model):
                     'product_id': parent_sol.product_id.id,
                     'product_uom_qty': 0,
                     'quantity': 0,
-                    'product_uom': (
+                    'uom_id': (
                         parent_sol.product_uom_id.id
                         or parent_sol.product_id.uom_id.id
                     ),
@@ -266,7 +266,7 @@ class StockPicking(models.Model):
                     'product_id': parent_sol.product_id.id,
                     'product_uom_qty': 0,
                     'quantity': 0,
-                    'product_uom': (
+                    'uom_id': (
                         parent_sol.product_uom_id.id
                         or parent_sol.product_id.uom_id.id
                     ),
@@ -278,3 +278,25 @@ class StockPicking(models.Model):
                     'picked': False,
                 })
                 header.write({'state': 'assigned'})
+
+    def _prepare_return_move_default_values(self, move_id):
+        """Skip set parent header moves on return pickings.
+
+        Set parent header moves are display-only entries on outbound
+        pickings (demand=set qty, picked=True).  They should never carry
+        a return demand because:
+          * The set parent product carries no stock of its own.
+          * Only the actual components need to be returned.
+          * Return reconciliation (_reconcile_return_pickings) handles
+            component-level return demands correctly.
+
+        Odoo 20 builds return pickings by copying the original moves
+        (``stock.picking._create_return``); the legacy
+        ``stock.return.picking`` wizard no longer exists.  We therefore
+        force the returned quantity to 0 here instead of dropping a
+        wizard line.
+        """
+        vals = super()._prepare_return_move_default_values(move_id)
+        if self._is_set_header_move(move_id):
+            vals['product_uom_qty'] = 0
+        return vals

@@ -22,7 +22,7 @@ class TestRentalOnOption(TransactionCase):
         cls.stock_loc = cls.wh.lot_stock_id
         cls.prod = cls.env['product.product'].create({
             'name': 'Opt Widget', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, qty):

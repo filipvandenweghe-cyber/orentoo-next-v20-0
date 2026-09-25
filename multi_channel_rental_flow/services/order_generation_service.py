@@ -92,7 +92,7 @@ class OrderGenerationService(models.AbstractModel):
             slot.sale_order_id = False
 
         has_rental = any(
-            i.item_role == 'rental' and i.product_id.rent_ok
+            i.item_role == 'rental' and i.product_id.rent_periodicity
             for i in items
         )
 
@@ -195,7 +195,7 @@ class OrderGenerationService(models.AbstractModel):
         is_rental_line = (
             is_rental_order
             and item.item_role == 'rental'
-            and item.product_id.rent_ok
+            and item.product_id.rent_periodicity
         )
 
         line_vals = {

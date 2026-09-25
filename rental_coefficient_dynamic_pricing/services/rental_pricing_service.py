@@ -37,7 +37,7 @@ class RentalPricingService(models.AbstractModel):
     # =====================================================================
     # 1. Base-price adapter  [RE01]
     #
-    # >>> REVIEW THIS METHOD AFTER UPGRADING TO ODOO 19.3 <<<
+    # >>> REVIEW THIS METHOD AFTER EVERY ODOO UPGRADE <<<
     #
     # This is the only coupling point to Odoo's native rental price logic.
     # It retrieves the price that Odoo would normally set on a rental SOL
@@ -46,24 +46,53 @@ class RentalPricingService(models.AbstractModel):
 
     @api.model
     def _get_base_rental_price_for_line(self, line):  # RE01
-        """Return the Odoo-native base rental price for a sale order line.
+        """Return the Odoo-native base rental price for ONE rental period.
 
-        This calls Odoo's standard ``_get_pricelist_price()`` which, for
-        rental lines, queries ``product.pricing`` rules via the pricelist.
+        This calls Odoo's standard ``_get_pricelist_price()``.  If no
+        pricelist rule matches, the product falls back to its Sales Price
+        (``lst_price``).
 
-        If no pricelist rule matches the product falls back to its Sales
-        Price (``lst_price``).
+        **Odoo 20**: rental pricing moved from ``product.pricing`` records to
+        ``product.rent_periodicity`` + the pricelist, and for a rental line
+        ``_get_pricelist_price()`` now returns the price of the WHOLE rental
+        period (the sum of the price at each periodicity step).  The
+        coefficient engine expects the price of a SINGLE period — it applies
+        the duration itself, through the coefficient table — so the number of
+        periods is divided back out here.  Without that, the duration would
+        be counted twice.
 
         :param sale.order.line line: the rental order line.
-        :returns: base rental price (float) for the full rental period
-                  as Odoo would compute it natively.
+        :returns: base rental price (float) for a single rental period.
         """
         # Call the *original* chain – coefficient/dynamic overrides must
-        # skip themselves when this flag is set (used once integration is
-        # wired up in a later step).
-        return line.with_context(
+        # skip themselves when this flag is set.
+        price = line.with_context(
             skip_coefficient_dynamic_pricing=True,
         )._get_pricelist_price()
+        return self._to_single_period_price(line, price)
+
+    @api.model
+    def _to_single_period_price(self, line, price):  # RE01
+        """Scale an Odoo-native rental price back to ONE rental period.
+
+        Odoo 20 prices a rental line for the whole rental period (the sum of
+        the price at each periodicity step).  Every base price this engine
+        starts from — the pricelist price of a standalone line, the fixed
+        price of a set parent, the component sum of a sum-mode parent — is
+        therefore duration-scaled already, while the coefficient table
+        applies the duration itself.  Dividing the number of periods back out
+        keeps the duration counted exactly once.
+
+        Returns ``price`` unchanged for anything that is not a dated rental
+        line of a product with a rental periodicity.
+        """
+        if not price or not line.is_rental:
+            return price
+        product = line.product_id
+        if not product.rent_periodicity or not (line.start_date and line.return_date):
+            return price
+        periods = product._get_number_of_periods(line.start_date, line.return_date)
+        return price / periods if periods > 1 else price
 
     # =====================================================================
     # 2. Duration calculator  [RE02]

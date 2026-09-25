@@ -18,42 +18,42 @@ class TestRentalSetCommon(TransactionCase):
             'list_price': 25.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         cls.cable = Product.create({
             'name': 'DMX Cable 5m',
             'list_price': 5.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         cls.truss = Product.create({
             'name': 'Truss Section 2m',
             'list_price': 40.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         cls.clamp = Product.create({
             'name': 'Half Coupler Clamp',
             'list_price': 3.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         cls.controller = Product.create({
             'name': 'DMX Controller',
             'list_price': 35.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         cls.spare = Product.create({
             'name': 'Spare LED Bar',
             'list_price': 30.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
 
         # ── Nested set: Front Light Set (sum pricing) ─────────────────────
@@ -62,7 +62,7 @@ class TestRentalSetCommon(TransactionCase):
             'list_price': 0.0,
             'type': 'consu',
             'sale_ok': False,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -81,7 +81,7 @@ class TestRentalSetCommon(TransactionCase):
             'list_price': 250.0,
             'type': 'consu',
             'sale_ok': True,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'fixed',
         })
@@ -587,13 +587,13 @@ class TestSetCornerCases(TestRentalSetCommon):
             'name': 'Non-Storable Service',
             'type': 'service',
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         set_tmpl = self.env['product.template'].create({
             'name': 'Service-Only Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -687,18 +687,17 @@ class TestSetCornerCases(TestRentalSetCommon):
             skip_lost_broken_check=True,
         ).button_validate()
 
-        # Open return wizard
-        return_wiz = self.env['stock.return.picking'].with_context(
-            active_id=picking.id, active_model='stock.picking',
-        ).create({})
+        # Odoo 20 dropped the stock.return.picking wizard: a return picking
+        # is built straight from the original one (_create_return).
+        return_picking = picking._create_return()
 
-        # Set parent must not appear as a returnable line (qty=0)
+        # Set parent must not appear as a returnable line (demand = 0)
         set_parent_product = self.lighting_pkg_tmpl.product_variant_id
-        parent_return_lines = return_wiz.product_return_moves.filtered(
-            lambda l: l.product_id == set_parent_product and l.quantity > 0
+        parent_return_moves = return_picking.move_ids.filtered(
+            lambda m: m.product_id == set_parent_product and m.product_uom_qty > 0
         )
         self.assertFalse(
-            parent_return_lines,
+            parent_return_moves,
             "Set parent must not appear as returnable (qty must be 0)",
         )
 
@@ -1096,13 +1095,13 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         set_tmpl = self.env['product.template'].create({
             'name': 'Test Competing Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1178,13 +1177,13 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         set_tmpl = self.env['product.template'].create({
             'name': 'Demand Test Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1239,7 +1238,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         # Create stock
         self.env['stock.quant'].with_context(inventory_mode=True).create({
@@ -1252,7 +1251,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'name': 'Consistent Qty Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1316,7 +1315,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         self.env['stock.quant'].with_context(inventory_mode=True).create({
             'product_id': storable.id,
@@ -1328,7 +1327,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'name': 'Red Icon Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1382,7 +1381,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         self.env['stock.quant'].with_context(inventory_mode=True).create({
             'product_id': storable.id,
@@ -1426,7 +1425,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         self.env['stock.quant'].with_context(inventory_mode=True).create({
             'product_id': storable.id,
@@ -1474,7 +1473,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         self.env['stock.quant'].with_context(inventory_mode=True).create({
             'product_id': storable.id,
@@ -1519,7 +1518,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'type': 'consu',
             'is_storable': True,
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
         action = storable.action_view_rentals()
 
@@ -1555,7 +1554,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'name': 'Outer Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1619,7 +1618,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'name': 'Outer Set Procurement Test',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1671,7 +1670,7 @@ class TestSetCornerCases(TestRentalSetCommon):
             'name': 'Widget Test Set',
             'type': 'consu',
             'list_price': 0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'is_rental_set': True,
             'set_pricing_mode': 'sum',
         })
@@ -1784,7 +1783,7 @@ class TestSetCornerCases(TestRentalSetCommon):
                 'type': 'consu',
                 'is_storable': True,
                 'list_price': 10.0,
-                'rent_ok': True,
+                'rent_periodicity': 'days',
             })
             self.env['stock.quant'].with_context(inventory_mode=True).create({
                 'product_id': storable.id,

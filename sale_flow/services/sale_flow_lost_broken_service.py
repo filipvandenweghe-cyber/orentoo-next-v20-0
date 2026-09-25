@@ -1,4 +1,4 @@
-from odoo import api, fields, models, _
+from odoo import Command, api, fields, models, _
 from odoo.tools import float_compare
 
 
@@ -132,21 +132,35 @@ class SaleFlowLostBrokenService(models.AbstractModel):
     def _create_rental_scrap(self, order, product, qty, rental_loc, sale_line,
                              lot=None):
         """Create and process one scrap from the rental location, optionally
-        for a specific serial ``lot``."""
+        for a specific serial ``lot``.
+
+        Odoo 20 removed the ``stock.scrap`` model: a scrap is now a plain
+        ``stock.move`` flagged ``is_scrap`` and processed with
+        ``_action_scrap()`` (which picks it, writes the scrap reference and
+        calls ``_action_done``).
+        """
+        company = order.company_id
         vals = {
             'product_id': product.id,
-            'product_uom_id': product.uom_id.id,
-            'scrap_qty': qty,
+            'uom_id': product.uom_id.id,
+            'product_uom_qty': qty,
+            'quantity': qty,
+            'is_scrap': True,
             'location_id': rental_loc.id,
-            'company_id': order.company_id.id,
+            'location_dest_id': company.scrap_location_id.id,
+            'company_id': company.id,
             'origin': order.name,
         }
-        if lot:
-            vals['lot_id'] = lot.id
-        scrap = self.env['stock.scrap'].create(vals)
-        scrap.do_scrap()
         if sale_line:
-            scrap.move_ids.write({'sale_line_id': sale_line.id})
+            vals['sale_line_id'] = sale_line.id
+        # The wizard reduces the open return demand itself, so the scrap must
+        # not trigger sale_flow's return reconciliation on top of that.
+        move = self.env['stock.move'].with_context(
+            skip_sale_flow_sync=True,
+        ).create(vals)
+        if lot:
+            move.lot_ids = [Command.set(lot.ids)]
+        move._action_scrap()
 
     def _get_fee_product(self, company):
         """Return the SERVICE product used for lost/broken charge lines.
@@ -169,7 +183,7 @@ class SaleFlowLostBrokenService(models.AbstractModel):
         return self.env['product.product'].create({
             'name': 'Lost/Broken Fee',
             'type': 'service',
-            'rent_ok': False,
+            'rent_periodicity': False,
         })
 
     def _create_charge_line(self, order, origin_flow_line,

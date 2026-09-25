@@ -6,23 +6,22 @@
              a (crew-managed) leave. tz=UTC keeps the day boundaries absolute. -->
         <record id="resource_calendar_crew" model="resource.calendar">
             <field name="name">Crew (24/7)</field>
-            <field name="tz">UTC</field>
             <field name="hours_per_day">24.0</field>
             <field name="attendance_ids" eval="[
-                (0,0,{'name':'Mon AM','dayofweek':'0','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Mon PM','dayofweek':'0','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
-                (0,0,{'name':'Tue AM','dayofweek':'1','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Tue PM','dayofweek':'1','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
-                (0,0,{'name':'Wed AM','dayofweek':'2','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Wed PM','dayofweek':'2','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
-                (0,0,{'name':'Thu AM','dayofweek':'3','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Thu PM','dayofweek':'3','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
-                (0,0,{'name':'Fri AM','dayofweek':'4','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Fri PM','dayofweek':'4','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
-                (0,0,{'name':'Sat AM','dayofweek':'5','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Sat PM','dayofweek':'5','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
-                (0,0,{'name':'Sun AM','dayofweek':'6','hour_from':0.0,'hour_to':12.0,'day_period':'morning'}),
-                (0,0,{'name':'Sun PM','dayofweek':'6','hour_from':12.0,'hour_to':24.0,'day_period':'afternoon'}),
+                (0,0,{'dayofweek':'0','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'0','hour_from':12.0,'hour_to':24.0}),
+                (0,0,{'dayofweek':'1','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'1','hour_from':12.0,'hour_to':24.0}),
+                (0,0,{'dayofweek':'2','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'2','hour_from':12.0,'hour_to':24.0}),
+                (0,0,{'dayofweek':'3','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'3','hour_from':12.0,'hour_to':24.0}),
+                (0,0,{'dayofweek':'4','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'4','hour_from':12.0,'hour_to':24.0}),
+                (0,0,{'dayofweek':'5','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'5','hour_from':12.0,'hour_to':24.0}),
+                (0,0,{'dayofweek':'6','hour_from':0.0,'hour_to':12.0}),
+                (0,0,{'dayofweek':'6','hour_from':12.0,'hour_to':24.0}),
             ]"/>
         </record>
     </data>

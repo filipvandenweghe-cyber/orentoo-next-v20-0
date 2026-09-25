@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_weather_location_user,weather.location user,model_weather_location,weather_forecast.group_weather_user,1,0,0,0
-access_weather_location_manager,weather.location manager,model_weather_location,weather_forecast.group_weather_manager,1,1,1,1
-access_weather_forecast_line_user,weather.forecast.line user,model_weather_forecast_line,weather_forecast.group_weather_user,1,0,0,0
-access_weather_forecast_line_manager,weather.forecast.line manager,model_weather_forecast_line,weather_forecast.group_weather_manager,1,1,1,1

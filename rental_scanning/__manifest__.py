@@ -1,6 +1,6 @@
 {
     'name': 'Rental Scanning',
-    'version': '19.0.1.7.0',
+    'version': '20.0.1.7.0',
     'summary': 'Prepared-package & set picking via scanning (late binding)',
     'description': (
         'Assign a pre-prepared physical package (or a set barcode, or a '
@@ -24,9 +24,9 @@
         'rental_serial_log',  # repair-status check + repair_override audit
     ],
     'data': [
-        'security/ir.model.access.csv',
         'wizard/rental_scanning_assign_views.xml',
         'views/stock_picking_views.xml',
+        'security/ir.access.csv',
     ],
     'assets': {
         'web.assets_backend': [

@@ -79,7 +79,7 @@ R13 — Delivery-added products appear on invoice by default
     → sale_flow_service._create_flow_line_from_delivery()
 
 R14 — Rental detection for delivery-added products
-    Products with rent_ok=True delivered on a rental order are marked
+    Rentable products (rent_periodicity set) delivered on a rental order are marked
     is_rental=True on the flow line — they must come back.
     → sale_flow_service._create_flow_line_from_delivery()
 
@@ -167,9 +167,9 @@ RS04 — Set parent header move: zero-demand, display-only
     → rental_set/models/stock_picking._sanity_check()
 
 RS05 — Return wizard excludes set parent header moves
-    The stock return wizard sets qty=0 for set parent moves so they
+    Return picking creation sets qty=0 for set parent moves so they
     don't appear as returnable lines.
-    → rental_set/wizard/stock_return_picking.py
+    → rental_set/models/stock_picking._prepare_return_move_default_values()
 
 RS06 — Price stable when set qty changes (sum mode)
     Doubling set parent qty must not halve per-unit price.  Components

@@ -27,7 +27,7 @@ class TestTicketService(TransactionCase):
             'type': 'consu',
             'is_storable': True,
             'list_price': 50.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'use_in_multi_channel_rental_flow': True,
             'multi_channel_item_role': 'rental',
         })

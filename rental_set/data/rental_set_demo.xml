@@ -10,7 +10,7 @@
         <field name="list_price">25.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="True"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
         <field name="description_sale">RGBW LED Par Can, 18x10W</field>
     </record>
 
@@ -19,7 +19,7 @@
         <field name="list_price">5.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="True"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
     </record>
 
     <record id="product_truss" model="product.product">
@@ -27,7 +27,7 @@
         <field name="list_price">40.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="True"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
         <field name="description_sale">Aluminium box truss, 290mm</field>
     </record>
 
@@ -36,7 +36,7 @@
         <field name="list_price">3.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="True"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
     </record>
 
     <record id="product_controller" model="product.product">
@@ -44,7 +44,7 @@
         <field name="list_price">35.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="True"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
         <field name="description_sale">24-channel DMX-512 lighting console</field>
     </record>
 
@@ -58,7 +58,7 @@
         <field name="list_price">0.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="False"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
         <field name="is_rental_set" eval="True"/>
         <field name="set_pricing_mode">sum</field>
     </record>
@@ -92,7 +92,7 @@
         <field name="list_price">250.0</field>
         <field name="type">consu</field>
         <field name="sale_ok" eval="True"/>
-        <field name="rent_ok" eval="True"/>
+        <field name="rent_periodicity">days</field>
         <field name="is_rental_set" eval="True"/>
         <field name="set_pricing_mode">fixed</field>
     </record>

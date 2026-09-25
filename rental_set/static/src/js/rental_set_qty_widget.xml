@@ -3,10 +3,10 @@
 
     <!-- Icon: green chart if enough stock, red if not -->
     <t t-name="rental_set.RentalSetQtyWidget">
-        <a t-if="calcData.show"
-           t-on-click="showPopup"
+        <a t-if="this.calcData().show"
+           t-on-click="this.showPopup"
            tabindex="0"
-           t-attf-class="fa fa-area-chart cursor-pointer {{ calcData.sufficient ? '' : 'text-danger' }}"
+           t-attf-class="fa fa-area-chart cursor-pointer {{ this.calcData().sufficient ? '' : 'text-danger' }}"
            title="Set Availability"
         />
     </t>
@@ -20,21 +20,21 @@
                     <tr>
                         <td>Requested</td>
                         <td class="text-end">
-                            <b t-out="props.calcData.requested"/>
+                            <b t-out="this.props.calcData.requested"/>
                             sets
                         </td>
                     </tr>
                     <tr>
                         <td>Available</td>
                         <td class="text-end">
-                            <b t-out="Math.floor(props.calcData.available)"
-                               t-attf-class="{{ props.calcData.sufficient ? '' : 'text-danger' }}"/>
+                            <b t-out="Math.floor(this.props.calcData.available)"
+                               t-attf-class="{{ this.props.calcData.sufficient ? '' : 'text-danger' }}"/>
                             sets
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <div t-if="props.calcData.sufficient" class="text-muted small">
+            <div t-if="this.props.calcData.sufficient" class="text-muted small">
                 <i class="fa fa-check-circle"/> Sufficient stock for this order.
             </div>
             <div t-else="" class="text-danger small">

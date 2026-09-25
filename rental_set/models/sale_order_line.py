@@ -3,7 +3,6 @@ from collections import defaultdict
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
-from odoo.tools import float_compare
 
 
 # Hard ceiling on nesting depth -- protects against accidental infinite loops
@@ -512,7 +511,8 @@ class SaleOrderLine(models.Model):
             return 0.0
         return sum(
             m.quantity for m in self.move_ids
-            if m.state == 'done' and m.scrap_id
+            # Odoo 20: stock.move.scrap_id was replaced by the is_scrap flag.
+            if m.state == 'done' and m.is_scrap
             and m.location_id == rental_loc
         )
 
@@ -739,7 +739,7 @@ class SaleOrderLine(models.Model):
             # Reserved by OTHER orders — period-aware rental commitment,
             # excluding this line (same basis as native availability).
             reserved_other = 0.0
-            if product.rent_ok and hasattr(product, '_get_unavailable_qty'):
+            if product.rent_periodicity and hasattr(product, '_get_unavailable_qty'):
                 reserved_other = product._get_unavailable_qty(
                     from_date, to_date,
                     ignored_soline_id=line.id, warehouse_id=wh_id,
@@ -767,7 +767,7 @@ class SaleOrderLine(models.Model):
             # On option by OTHER (unconfirmed) orders — a soft hold shown for
             # awareness; it never changes the committed availability above.
             # The whole current order is excluded, so it never counts itself.
-            if order.company_id.rental_flag_options and product.rent_ok \
+            if order.company_id.rental_flag_options and product.rent_periodicity \
                     and hasattr(product, '_get_on_option_lines'):
                 opt_lines = product._get_on_option_lines(
                     from_date, to_date, ignored_order_id=order.id,
@@ -807,7 +807,9 @@ class SaleOrderLine(models.Model):
         of current on-hand across those locations, so the buckets always sum
         to Total with no reconciling remainder.  (RAV-14, Option A)
         """
-        rounding = product.uom_id.rounding or 0.01
+        # Odoo 20 removed uom.uom.rounding: quantities are rounded with the
+        # 'Product Unit' decimal precision, exposed as uom.compare().
+        uom = product.uom_id
         wh_locs = self.env['stock.location']
         if wh and wh.view_location_id:
             wh_locs = self.env['stock.location'].search([
@@ -839,15 +841,15 @@ class SaleOrderLine(models.Model):
             carve = min(max(qty, 0.0), repair_left)
             qty -= carve
             repair_left -= carve
-            if float_compare(qty, 0.0, precision_rounding=rounding) > 0:
+            if uom.compare(qty, 0.0) > 0:
                 buckets.append({'location': loc.display_name, 'qty': qty})
 
-        if float_compare(in_repair, 0.0, precision_rounding=rounding) > 0:
+        if uom.compare(in_repair, 0.0) > 0:
             buckets.append({'location': _('In repair'), 'qty': in_repair})
 
         if rental_loc:
             at_customer = onhand.get(rental_loc.id, 0.0)
-            if float_compare(at_customer, 0.0, precision_rounding=rounding) > 0:
+            if uom.compare(at_customer, 0.0) > 0:
                 buckets.append({'location': _('At customer'),
                                 'qty': at_customer})
 
@@ -1379,7 +1381,7 @@ class SaleOrderLine(models.Model):
                     'product_id': parent_sol.product_id.id,
                     'product_uom_qty': 0,
                     'quantity': 0,
-                    'product_uom': parent_sol.product_uom_id.id or parent_sol.product_id.uom_id.id,
+                    'uom_id': parent_sol.product_uom_id.id or parent_sol.product_id.uom_id.id,
                     'location_id': picking.location_id.id,
                     'location_dest_id': picking.location_dest_id.id,
                     'picking_id': picking.id,
@@ -1575,7 +1577,7 @@ class SaleOrderLine(models.Model):
 
                 if confirmed_leaves:
                     available = confirmed_leaves[0].free_qty_today
-                elif product.rent_ok and hasattr(product, '_get_unavailable_qty'):
+                elif product.rent_periodicity and hasattr(product, '_get_unavailable_qty'):
                     available = self._get_component_available_qty(
                         product, from_date, to_date, warehouse_id,
                         ignored_soline_id=False,
@@ -1647,7 +1649,7 @@ class SaleOrderLine(models.Model):
         (See ``_compute_forecast_availability``.)  Keeps set-component
         availability consistent with standalone-line availability.
         """
-        if product.rent_ok and hasattr(product, '_get_unavailable_qty'):
+        if product.rent_periodicity and hasattr(product, '_get_unavailable_qty'):
             wh = (self.env['stock.warehouse'].browse(warehouse_id)
                   if warehouse_id else self.order_id.warehouse_id)
             return product._rental_available_qty(

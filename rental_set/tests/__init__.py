@@ -7,3 +7,4 @@ from . import test_rental_transfer_grounding
 from . import test_rental_availability_batch
 from . import test_rental_availability_perf
 from . import test_rental_on_option
+from . import test_rental_set_ui

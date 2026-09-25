@@ -37,7 +37,7 @@ class TestRentalTransferGrounding(TransactionCase):
             cls.company.invalidate_recordset(['rental_loc_id'])
         cls.prod = cls.env['product.product'].create({
             'name': 'Xfer Widget', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, wh, qty):
@@ -57,7 +57,7 @@ class TestRentalTransferGrounding(TransactionCase):
         now = fields.Datetime.now()
         move = self.env['stock.move'].create({
             'product_id': self.prod.id,
-            'product_uom': self.prod.uom_id.id,
+            'uom_id': self.prod.uom_id.id,
             'product_uom_qty': qty,
             'location_id': src_wh.lot_stock_id.id,
             'location_dest_id': dst_wh.lot_stock_id.id,
@@ -140,7 +140,7 @@ class TestRentalTransferGrounding(TransactionCase):
         self.assertEqual(self.wha.in_type_id.rental_incoming_policy, 'projected',
                          "receipts default to projected (safe) policy")
         move = self.env['stock.move'].create({
-            'product_id': self.prod.id, 'product_uom': self.prod.uom_id.id,
+            'product_id': self.prod.id, 'uom_id': self.prod.uom_id.id,
             'product_uom_qty': 7,
             'location_id': supplier.id,
             'location_dest_id': self.wha.lot_stock_id.id,
@@ -168,7 +168,7 @@ class TestRentalTransferGrounding(TransactionCase):
         supplier = self.env.ref('stock.stock_location_suppliers')
         self.wha.in_type_id.rental_incoming_policy = 'operational'
         move = self.env['stock.move'].create({
-            'product_id': self.prod.id, 'product_uom': self.prod.uom_id.id,
+            'product_id': self.prod.id, 'uom_id': self.prod.uom_id.id,
             'product_uom_qty': 2,
             'location_id': supplier.id,
             'location_dest_id': self.wha.lot_stock_id.id,

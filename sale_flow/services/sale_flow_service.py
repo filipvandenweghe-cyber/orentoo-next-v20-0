@@ -275,10 +275,10 @@ class SaleFlowService(models.AbstractModel):
         if not order:
             return self.env['sale.flow.line']
 
-        # Detect rental status from the product itself (rent_ok) or from the
-        # order being a rental order.  A product with rent_ok=True delivered
+        # Detect rental status from the product itself (rent_periodicity) or from
+        # the order being a rental order.  A rentable product delivered
         # on a rental order is a rental item that must come back.
-        is_rental = getattr(move.product_id, 'rent_ok', False)
+        is_rental = getattr(move.product_id, 'rent_periodicity', False)
         product = move.product_id
         qty = move.quantity if move.state == 'done' else move.product_uom_qty
 
@@ -326,7 +326,7 @@ class SaleFlowService(models.AbstractModel):
             'sale_order_id': order.id,
             'sale_line_id': sale_line.id if sale_line else False,
             'product_id': product.id,
-            'product_uom_id': move.product_uom.id,
+            'product_uom_id': move.uom_id.id,
             'confirmed_qty': 0,
             'current_qty': qty,
             'delivered_qty': move.quantity if move.state == 'done' else 0,

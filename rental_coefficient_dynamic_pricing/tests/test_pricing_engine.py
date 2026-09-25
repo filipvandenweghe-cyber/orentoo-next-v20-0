@@ -198,7 +198,7 @@ class TestCoefficientTableSelection(TransactionCase):
         # Product with config: product_table + shared_table
         cls.product = cls.env['product.template'].create({
             'name': 'Engine Test Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'rental_pricing_config_ids': [
                 (0, 0, {
@@ -226,7 +226,7 @@ class TestCoefficientTableSelection(TransactionCase):
         # Product with no config
         cls.product_no_config = cls.env['product.template'].create({
             'name': 'No Config Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
         })
 
@@ -316,7 +316,7 @@ class TestCoefficientForContext(TransactionCase):
 
         cls.product = cls.env['product.template'].create({
             'name': 'Coeff Context Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'rental_pricing_config_ids': [
                 (0, 0, {
@@ -333,7 +333,7 @@ class TestCoefficientForContext(TransactionCase):
         # Product with no config (for fallback tests)
         cls.product_bare = cls.env['product.template'].create({
             'name': 'Bare Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
         })
         cls.partner_bare = cls.env['res.partner'].create({
@@ -461,7 +461,7 @@ class TestDynamicFactorForContext(TransactionCase):
 
         cls.product = cls.env['product.template'].create({
             'name': 'DP Context Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'rental_pricing_config_ids': [
                 (0, 0, {
@@ -473,7 +473,7 @@ class TestDynamicFactorForContext(TransactionCase):
 
         cls.product_no_dp = cls.env['product.template'].create({
             'name': 'No DP Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
         })
 
@@ -619,7 +619,7 @@ class TestBasePriceAdapter(TransactionCase):
         )
         cls.product_tmpl = cls.env['product.template'].create({
             'name': 'Base Price Test Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 42.0,
         })
@@ -700,7 +700,7 @@ class TestCustomerCoefficientTableSelection(TransactionCase):
         # Product has both tables
         cls.product = cls.env['product.template'].create({
             'name': 'Multi Table Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'rental_pricing_config_ids': [
                 (0, 0, {
@@ -788,7 +788,7 @@ class TestStandardTableFallback(TransactionCase):
 
         cls.product = cls.env['product.template'].create({
             'name': 'Fallback Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
         })
         cls.partner = cls.env['res.partner'].create({

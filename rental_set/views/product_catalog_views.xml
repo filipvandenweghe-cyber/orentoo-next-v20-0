@@ -10,11 +10,11 @@
         <field name="inherit_id" ref="stock.product_view_kanban_catalog"/>
         <field name="arch" type="xml">
             <field name="free_qty" position="after">
-                <field name="rent_ok"/>
+                <field name="rent_periodicity"/>
                 <field name="rental_avail_catalog"/>
             </field>
             <div name="o_kanban_qty_available_and_on_hand" position="after">
-                <div t-if="record.rent_ok.raw_value"
+                <div t-if="record.rent_periodicity.raw_value"
                      invisible="not context.get('start_date')"
                      name="o_kanban_rental_availability">
                     <span class="fw-bold" t-out="record.rental_avail_catalog.raw_value"/>

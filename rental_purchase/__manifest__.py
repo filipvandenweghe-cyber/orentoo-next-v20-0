@@ -26,7 +26,7 @@ module. This core module works with any external (non-Odoo) supplier.
     'author': "Orentoo",
     'website': "https://www.orentoo.com",
     'category': 'Inventory/Purchase',
-    'version': '19.0.1.3.0',
+    'version': '20.0.1.3.0',
     'license': 'LGPL-3',
     'depends': [
         'purchase_stock',

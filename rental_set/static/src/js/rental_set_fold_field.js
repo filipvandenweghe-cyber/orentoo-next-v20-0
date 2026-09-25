@@ -13,15 +13,16 @@
  *
  *   • Normal row      → empty cell (no column space wasted).
  */
-import { Component } from "@odoo/owl";
+import { Component, useProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 export class RentalSetFoldField extends Component {
     static template = "rental_set.FoldField";
-    static props = {
+    // Owl 3 ignores a static `props`; the schema goes through useProps().
+    props = useProps({
         ...standardFieldProps,
-    };
+    });
 
     // ── Helpers ────────────────────────────────────────────────────────────
 

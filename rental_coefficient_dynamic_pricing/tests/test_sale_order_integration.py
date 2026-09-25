@@ -47,7 +47,7 @@ class TestSaleOrderIntegrationBase(TransactionCase):
         # Rental product with pricing config
         cls.product_tmpl = cls.env['product.template'].create({
             'name': 'Integration Rental Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 20.0,  # Sales Price = base per period
             'rental_pricing_config_ids': [
@@ -222,7 +222,7 @@ class TestQuantityChanges(TestSaleOrderIntegrationBase):
         """Shrinking/growing the rental period recomputes from the base. [RI07]
 
         The rental "Update Rental Prices" flow (triggered whenever the
-        duration changes) recomputes via ``action_update_rental_prices``.
+        duration changes) recomputes via ``_recompute_rental_prices``.
         Each recompute must derive from the native base, never compound the
         previous period's adjusted price.
         """
@@ -432,7 +432,7 @@ class TestFallbackPricing(TestSaleOrderIntegrationBase):
         # Product without any pricing config
         cls.bare_product_tmpl = cls.env['product.template'].create({
             'name': 'Bare Rental Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 30.0,
         })
@@ -519,26 +519,38 @@ class TestTaxesAndDiscounts(TestSaleOrderIntegrationBase):
         self.assertEqual(line.discount, 0.0)
 
 
-class TestPartnerChangeShowsUpdateButton(TestSaleOrderIntegrationBase):
-    """Tests for partner change triggering Update Prices button.  [RI05]"""
+class TestPartnerChangeRecomputesPrices(TestSaleOrderIntegrationBase):
+    """Changing the customer refreshes rental prices.  [RI05]
 
-    def test_ri05_partner_change_shows_update_button(self):
-        """Changing partner on a rental order shows Update Rental Prices."""
+    Odoo 20 removed the rental "Update Rental Prices" button and its
+    ``show_update_duration`` flag, so the onchange now recomputes the rental
+    line prices directly instead of flagging a button.
+    """
+
+    def test_ri05_partner_change_recomputes_rental_prices(self):
+        """Changing partner on a rental order refreshes the rental price."""
         start = datetime(2026, 6, 1, 10, 0)
         end = start + timedelta(days=7)
         order, line = self._create_rental_order(start, end)
-        order.show_update_duration = False
+        expected = line.price_unit
+        # Make the price stale WITHOUT looking like a hand-typed one (RI06
+        # keeps a manual price): the engine holds technical_price_unit ==
+        # price_unit, so move them together.
+        line.write({
+            'price_unit': expected + 123.0,
+            'technical_price_unit': expected + 123.0,
+        })
 
         new_partner = self.env['res.partner'].create({
             'name': 'New Partner For RI05',
         })
         # Simulate onchange
         order.partner_id = new_partner
-        order._onchange_partner_show_update_rental_prices()
-        self.assertTrue(order.show_update_duration)
+        order._onchange_partner_recompute_rental_prices()
+        self.assertAlmostEqual(line.price_unit, expected, places=2)
 
-    def test_ri05_no_lines_no_button(self):
-        """Changing partner on an empty order does not show the button."""
+    def test_ri05_no_lines_no_recompute(self):
+        """Changing partner on an empty order is a harmless no-op."""
         start = datetime(2026, 6, 1, 10, 0)
         end = start + timedelta(days=7)
         order = self.env['sale.order'].create({
@@ -549,9 +561,8 @@ class TestPartnerChangeShowsUpdateButton(TestSaleOrderIntegrationBase):
             'rental_return_date': end,
             'is_rental_order': True,
         })
-        order.show_update_duration = False
-        order._onchange_partner_show_update_rental_prices()
-        self.assertFalse(order.show_update_duration)
+        order._onchange_partner_recompute_rental_prices()
+        self.assertFalse(order.order_line)
 
 
 class TestNonSetAllocationNoOp(TestSaleOrderIntegrationBase):
@@ -623,7 +634,7 @@ class TestCustomerTableIntersection(TransactionCase):
         # Product has BOTH tables
         cls.product_tmpl = cls.env['product.template'].create({
             'name': 'Intersect Test Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 20.0,
             'rental_pricing_config_ids': [
@@ -707,7 +718,7 @@ class TestCustomerTableIntersection(TransactionCase):
         # Create order for VIP customer but WITHOUT product config yet
         bare_product_tmpl = self.env['product.template'].create({
             'name': 'Late Config Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'list_price': 10.0,
         })
@@ -743,7 +754,7 @@ class TestCustomerTableIntersection(TransactionCase):
         })
 
         # Click "Update Prices"
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         line.invalidate_recordset()
 
         # After update: intersection {standard, vip} ∩ {vip} = {vip}
@@ -771,7 +782,7 @@ class TestCustomerTableIntersection(TransactionCase):
         })
 
         # Click "Update Prices"
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         line.invalidate_recordset()
 
         # Intersection: product has {standard, vip}, customer now has {vip}
@@ -830,7 +841,7 @@ class TestCustomerDynamicPricingToggle(TestSaleOrderIntegrationBase):
         self.partner.use_dynamic_pricing = False
 
         # Update Prices
-        order.action_update_rental_prices()
+        order._recompute_rental_prices()
         line.invalidate_recordset()
 
         self.assertEqual(line.applied_dynamic_factor_percentage, 100.0)

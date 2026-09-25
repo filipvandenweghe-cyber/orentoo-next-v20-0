@@ -1,0 +1,3 @@
+id,name,model_id,group_id/id,operation,domain
+access_rental_scanning_assign_user,rental.scanning.assign user,rental.scanning.assign,stock.group_stock_user,crud,
+access_rental_scanning_remove_user,rental.scanning.remove user,rental.scanning.remove,stock.group_stock_user,crud,

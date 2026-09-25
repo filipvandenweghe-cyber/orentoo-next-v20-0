@@ -36,7 +36,7 @@ class TestProductWarehousePricingConfig(TransactionCase):
         })
         cls.product = cls.env['product.template'].create({
             'name': 'Test Rental Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
         })
 
@@ -107,7 +107,7 @@ class TestProductTemplateHelpers(TransactionCase):
         })
         cls.product = cls.env['product.template'].create({
             'name': 'Helper Test Product',
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'type': 'consu',
             'rental_pricing_config_ids': [
                 (0, 0, {

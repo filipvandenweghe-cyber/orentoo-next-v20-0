@@ -1,0 +1,5 @@
+id,name,model_id,group_id/id,operation,domain
+access_weather_location_user,weather.location user,weather.location,weather_forecast.group_weather_user,r,
+access_weather_location_manager,weather.location manager,weather.location,weather_forecast.group_weather_manager,crud,
+access_weather_forecast_line_user,weather.forecast.line user,weather.forecast.line,weather_forecast.group_weather_user,r,
+access_weather_forecast_line_manager,weather.forecast.line manager,weather.forecast.line,weather_forecast.group_weather_manager,crud,

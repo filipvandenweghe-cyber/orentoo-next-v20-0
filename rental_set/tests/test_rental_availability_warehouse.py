@@ -37,7 +37,7 @@ class TestRentalAvailabilityWarehouse(TransactionCase):
 
         cls.prod = cls.env['product.product'].create({
             'name': 'WH Widget', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True})
+            'rent_periodicity': 'days'})
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _set_stock(self, product, qty, location):
@@ -67,7 +67,7 @@ class TestRentalAvailabilityWarehouse(TransactionCase):
         stock to the at-customer (rental) location, linked to the line."""
         move = self.env['stock.move'].create({
             'product_id': line.product_id.id,
-            'product_uom': line.product_id.uom_id.id,
+            'uom_id': line.product_id.uom_id.id,
             'product_uom_qty': qty,
             'location_id': warehouse.lot_stock_id.id,
             'location_dest_id': self.rental_loc.id,
@@ -189,7 +189,7 @@ class TestRentalAvailabilityWarehouse(TransactionCase):
     def test_05_warehouse_availability_empty_for_sets_and_single_wh(self):
         """No per-warehouse section for set lines (sourced per component)."""
         set_tmpl = self.env['product.template'].create({
-            'name': 'WH Set', 'type': 'consu', 'rent_ok': True,
+            'name': 'WH Set', 'type': 'consu', 'rent_periodicity': 'days',
             'is_rental_set': True, 'set_pricing_mode': 'sum'})
         self.env['rental.set.component'].create({
             'set_product_tmpl_id': set_tmpl.id, 'product_id': self.prod.id,

@@ -11,37 +11,37 @@
                     <div class="o_ra_filter">
                         <label class="small text-muted mb-1">Categories</label>
                         <MultiRecordSelector resModel="'product.category'"
-                            resIds="state.filters.categoryIds"
+                            resIds="this.state.filters.categoryIds"
                             update="(ids) => this.onFilterUpdate('categoryIds', ids)"
                             placeholder="'Categories…'"/>
                     </div>
                     <div class="o_ra_filter">
                         <label class="small text-muted mb-1">Products</label>
                         <MultiRecordSelector resModel="'product.product'"
-                            resIds="state.filters.productIds"
-                            domain="productDomain"
+                            resIds="this.state.filters.productIds"
+                            domain="this.productDomain"
                             update="(ids) => this.onFilterUpdate('productIds', ids)"
                             placeholder="'Search products…'"/>
                     </div>
                     <div class="o_ra_filter">
                         <label class="small text-muted mb-1">Companies</label>
                         <MultiRecordSelector resModel="'res.company'"
-                            resIds="state.filters.companyIds"
+                            resIds="this.state.filters.companyIds"
                             update="(ids) => this.onFilterUpdate('companyIds', ids)"
                             placeholder="'Companies…'"/>
                     </div>
                     <div class="o_ra_filter">
                         <label class="small text-muted mb-1">Warehouses</label>
                         <MultiRecordSelector resModel="'stock.warehouse'"
-                            resIds="state.filters.warehouseIds"
-                            domain="warehouseDomain"
+                            resIds="this.state.filters.warehouseIds"
+                            domain="this.warehouseDomain"
                             update="(ids) => this.onFilterUpdate('warehouseIds', ids)"
                             placeholder="'Warehouses…'"/>
                     </div>
                     <div class="o_ra_filter">
                         <label class="small text-muted mb-1">Orders</label>
                         <MultiRecordSelector resModel="'sale.order'"
-                            resIds="state.filters.orderIds"
+                            resIds="this.state.filters.orderIds"
                             domain="[['is_rental_order', '=', true]]"
                             context="{ 'rental_avail_order_label': 1 }"
                             update="(ids) => this.onFilterUpdate('orderIds', ids)"
@@ -52,48 +52,48 @@
                 <div class="o_ra_controls d-flex flex-wrap align-items-end gap-2 mt-2">
                     <div class="d-flex flex-column">
                         <label class="small text-muted mb-1">Start</label>
-                        <input t-if="state.filters.interval === 'day'"
+                        <input t-if="this.state.filters.interval === 'day'"
                                type="date" class="form-control form-control-sm o_ra_date"
-                               t-att-value="startDateValue" t-on-change="onDateChange"/>
+                               t-att-value="this.startDateValue" t-on-change="this.onDateChange"/>
                         <input t-else="" type="datetime-local"
                                class="form-control form-control-sm o_ra_date"
-                               t-att-value="startDateTimeValue" t-on-change="onDateChange"/>
+                               t-att-value="this.startDateTimeValue" t-on-change="this.onDateChange"/>
                     </div>
                     <div class="d-flex flex-column">
                         <label class="small text-muted mb-1">Interval</label>
-                        <select class="form-select form-select-sm o_ra_ctl" t-on-change="onIntervalChange">
-                            <option value="30min" t-att-selected="state.filters.interval === '30min'">30 minutes</option>
-                            <option value="hour" t-att-selected="state.filters.interval === 'hour'">1 hour</option>
-                            <option value="day" t-att-selected="state.filters.interval === 'day'">1 day</option>
+                        <select class="form-select form-select-sm o_ra_ctl" t-on-change="this.onIntervalChange">
+                            <option value="30min" t-att-selected="this.state.filters.interval === '30min'">30 minutes</option>
+                            <option value="hour" t-att-selected="this.state.filters.interval === 'hour'">1 hour</option>
+                            <option value="day" t-att-selected="this.state.filters.interval === 'day'">1 day</option>
                         </select>
                     </div>
                     <div class="d-flex flex-column">
                         <label class="small text-muted mb-1">Display</label>
-                        <select class="form-select form-select-sm o_ra_ctl" t-on-change="onDisplayChange">
-                            <option value="available" t-att-selected="state.displayMode === 'available'">Available</option>
-                            <option value="ratio" t-att-selected="state.displayMode === 'ratio'">Available / Capacity</option>
-                            <option value="utilisation" t-att-selected="state.displayMode === 'utilisation'">Utilisation %</option>
+                        <select class="form-select form-select-sm o_ra_ctl" t-on-change="this.onDisplayChange">
+                            <option value="available" t-att-selected="this.state.displayMode === 'available'">Available</option>
+                            <option value="ratio" t-att-selected="this.state.displayMode === 'ratio'">Available / Capacity</option>
+                            <option value="utilisation" t-att-selected="this.state.displayMode === 'utilisation'">Utilisation %</option>
                         </select>
                     </div>
                     <div class="btn-group" role="group">
-                        <button class="btn btn-sm btn-secondary" t-on-click="onPrev" title="Previous">
+                        <button class="btn btn-sm btn-secondary" t-on-click="this.onPrev" title="Previous">
                             <i class="fa fa-chevron-left"/>
                         </button>
-                        <button class="btn btn-sm btn-primary" t-on-click="onNow">
-                            <t t-esc="state.filters.interval === 'day' ? 'Today' : 'Now'"/>
+                        <button class="btn btn-sm btn-primary" t-on-click="this.onNow">
+                            <t t-out="this.state.filters.interval === 'day' ? 'Today' : 'Now'"/>
                         </button>
-                        <button class="btn btn-sm btn-secondary" t-on-click="onNext" title="Next">
+                        <button class="btn btn-sm btn-secondary" t-on-click="this.onNext" title="Next">
                             <i class="fa fa-chevron-right"/>
                         </button>
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" t-on-click="load">
+                    <button class="btn btn-sm btn-outline-primary" t-on-click="this.load">
                         <i class="fa fa-refresh me-1"/>Apply
                     </button>
                     <div class="form-check ms-2 mb-1">
                         <input type="checkbox" class="form-check-input"
                                id="o_ra_only_unavailable"
-                               t-att-checked="state.filters.onlyUnavailable"
-                               t-on-change="onOnlyUnavailableChange"/>
+                               t-att-checked="this.state.filters.onlyUnavailable"
+                               t-on-change="this.onOnlyUnavailableChange"/>
                         <label class="form-check-label small" for="o_ra_only_unavailable">
                             Only show unavailability
                         </label>
@@ -101,8 +101,8 @@
                     <div class="form-check ms-2 mb-1">
                         <input type="checkbox" class="form-check-input"
                                id="o_ra_include_options"
-                               t-att-checked="state.filters.includeOptions"
-                               t-on-change="onIncludeOptionsChange"/>
+                               t-att-checked="this.state.filters.includeOptions"
+                               t-on-change="this.onIncludeOptionsChange"/>
                         <label class="form-check-label small" for="o_ra_include_options">
                             Include options (on option)
                         </label>
@@ -112,12 +112,12 @@
 
             <!-- Matrix -->
             <div class="o_ra_scroll flex-grow-1 overflow-auto position-relative">
-                <t t-if="state.loading">
+                <t t-if="this.state.loading">
                     <div class="o_ra_loading text-center text-muted p-4">
                         <i class="fa fa-spinner fa-spin me-2"/>Loading…
                     </div>
                 </t>
-                <t t-elif="!state.data.rows.length">
+                <t t-elif="!this.state.data.rows.length">
                     <div class="text-center text-muted p-4">
                         No products in scope. Pick a category or product and click Apply.
                     </div>
@@ -127,43 +127,43 @@
                         <thead>
                             <tr>
                                 <th class="o_ra_sticky o_ra_ident">Product · Company · Warehouse</th>
-                                <t t-foreach="state.data.columns" t-as="col" t-key="col_index">
+                                <t t-foreach="this.state.data.columns" t-as="col" t-key="col_index">
                                     <th class="o_ra_col text-center" t-att-title="col.start">
-                                        <t t-esc="col.label"/>
+                                        <t t-out="col.label"/>
                                     </th>
                                 </t>
                             </tr>
                         </thead>
                         <tbody>
-                            <t t-foreach="state.data.rows" t-as="row" t-key="row.key">
-                                <t t-if="isNewCategory(row, row_index)">
+                            <t t-foreach="this.state.data.rows" t-as="row" t-key="row.key">
+                                <t t-if="this.isNewCategory(row, row_index)">
                                     <tr class="o_ra_group o_ra_group_category">
                                         <th class="o_ra_sticky o_ra_ident o_ra_group_cat"
-                                            t-esc="row.category"/>
+                                            t-out="row.category"/>
                                         <th class="o_ra_group_fill"
-                                            t-att-colspan="state.data.columns.length"/>
+                                            t-att-colspan="this.state.data.columns.length"/>
                                     </tr>
                                 </t>
-                                <t t-if="isNewProduct(row, row_index)">
+                                <t t-if="this.isNewProduct(row, row_index)">
                                     <tr class="o_ra_group o_ra_group_product">
                                         <th class="o_ra_sticky o_ra_ident o_ra_group_prod text-truncate"
-                                            t-esc="row.product_name"/>
+                                            t-out="row.product_name"/>
                                         <th class="o_ra_group_fill"
-                                            t-att-colspan="state.data.columns.length"/>
+                                            t-att-colspan="this.state.data.columns.length"/>
                                     </tr>
                                 </t>
                                 <tr>
                                     <td class="o_ra_sticky o_ra_ident">
                                         <div class="o_ra_whrow text-truncate">
-                                            <span t-if="showCompany(row, row_index)" class="o_ra_comp">
-                                                <t t-esc="row.company_name"/> · </span>
-                                            <span class="o_ra_wh" t-esc="row.warehouse_name"/>
+                                            <span t-if="this.showCompany(row, row_index)" class="o_ra_comp">
+                                                <t t-out="row.company_name"/> · </span>
+                                            <span class="o_ra_wh" t-out="row.warehouse_name"/>
                                         </div>
                                     </td>
-                                    <t t-foreach="state.data.columns" t-as="col" t-key="col_index">
-                                        <td t-attf-class="o_ra_cell text-center {{ cellClass(row, col_index) }}"
+                                    <t t-foreach="this.state.data.columns" t-as="col" t-key="col_index">
+                                        <td t-attf-class="o_ra_cell text-center {{ this.cellClass(row, col_index) }}"
                                             t-on-click="() => this.onCellClick(row, col_index)">
-                                            <t t-esc="cellText(row, col_index)"/>
+                                            <t t-out="this.cellText(row, col_index)"/>
                                         </td>
                                     </t>
                                 </tr>
@@ -180,107 +180,107 @@
             <div class="o_ra_detail">
                 <table class="table table-sm mb-3">
                     <tbody>
-                        <tr><th>Product</th><td t-esc="props.detail.product_name"/></tr>
-                        <tr><th>Company</th><td t-esc="props.detail.company_name"/></tr>
-                        <tr><th>Warehouse</th><td t-esc="props.detail.warehouse_name"/></tr>
+                        <tr><th>Product</th><td t-out="this.props.detail.product_name"/></tr>
+                        <tr><th>Company</th><td t-out="this.props.detail.company_name"/></tr>
+                        <tr><th>Warehouse</th><td t-out="this.props.detail.warehouse_name"/></tr>
                         <tr><th>Period</th>
-                            <td><t t-esc="props.detail.period.from"/> → <t t-esc="props.detail.period.to"/></td></tr>
+                            <td><t t-out="this.props.detail.period.from"/> → <t t-out="this.props.detail.period.to"/></td></tr>
                         <tr><th>Operational Available</th>
-                            <td t-esc="props.detail.available"/></tr>
-                        <tr><th>Capacity</th><td t-esc="props.detail.capacity"/></tr>
+                            <td t-out="this.props.detail.available"/></tr>
+                        <tr><th>Capacity</th><td t-out="this.props.detail.capacity"/></tr>
                         <tr><th>Utilisation</th>
-                            <td><t t-if="props.detail.utilisation === null">N/A</t>
-                                <t t-else=""><t t-esc="props.detail.utilisation"/>%</t></td></tr>
-                        <tr t-if="props.detail.on_option">
+                            <td><t t-if="this.props.detail.utilisation === null">N/A</t>
+                                <t t-else=""><t t-out="this.props.detail.utilisation"/>%</t></td></tr>
+                        <tr t-if="this.props.detail.on_option">
                             <th class="text-warning">On option (soft)</th>
-                            <td class="text-warning fw-bold" t-esc="props.detail.on_option"/></tr>
+                            <td class="text-warning fw-bold" t-out="this.props.detail.on_option"/></tr>
                     </tbody>
                 </table>
 
                 <h6>Rental / Sales Orders affecting availability</h6>
-                <table class="table table-sm table-striped mb-3" t-if="props.detail.orders.length">
+                <table class="table table-sm table-striped mb-3" t-if="this.props.detail.orders.length">
                     <thead><tr><th>Order</th><th>Customer</th><th>Start</th><th>End</th><th class="text-end">Qty</th></tr></thead>
                     <tbody>
-                        <t t-foreach="props.detail.orders" t-as="o" t-key="o_index">
+                        <t t-foreach="this.props.detail.orders" t-as="o" t-key="o_index">
                             <tr>
                                 <td>
                                     <a href="#" t-on-click.prevent="() => this.openOrder(o.order_id)"
-                                       t-esc="o.order_name"/>
+                                       t-out="o.order_name"/>
                                 </td>
-                                <td t-esc="o.partner"/>
-                                <td t-esc="o.start"/>
-                                <td t-esc="o.end"/>
-                                <td class="text-end" t-esc="o.qty"/>
+                                <td t-out="o.partner"/>
+                                <td t-out="o.start"/>
+                                <td t-out="o.end"/>
+                                <td class="text-end" t-out="o.qty"/>
                             </tr>
                         </t>
                     </tbody>
                 </table>
-                <p class="text-muted" t-if="!props.detail.orders.length">No orders affect this interval.</p>
+                <p class="text-muted" t-if="!this.props.detail.orders.length">No orders affect this interval.</p>
 
-                <h6 t-if="props.detail.option_orders and props.detail.option_orders.length"
+                <h6 t-if="this.props.detail.option_orders and this.props.detail.option_orders.length"
                     class="text-warning">On option by other orders (soft hold)</h6>
                 <table class="table table-sm table-striped mb-3"
-                       t-if="props.detail.option_orders and props.detail.option_orders.length">
+                       t-if="this.props.detail.option_orders and this.props.detail.option_orders.length">
                     <thead><tr><th>Order</th><th>Customer</th><th>Start</th><th>End</th><th>Option until</th><th class="text-end">Qty</th></tr></thead>
                     <tbody>
-                        <t t-foreach="props.detail.option_orders" t-as="o" t-key="o_index">
+                        <t t-foreach="this.props.detail.option_orders" t-as="o" t-key="o_index">
                             <tr>
                                 <td>
                                     <a href="#" t-on-click.prevent="() => this.openOrder(o.order_id)"
-                                       t-esc="o.order_name"/>
+                                       t-out="o.order_name"/>
                                 </td>
-                                <td t-esc="o.partner"/>
-                                <td t-esc="o.start"/>
-                                <td t-esc="o.end"/>
-                                <td t-esc="o.until"/>
-                                <td class="text-end" t-esc="o.qty"/>
+                                <td t-out="o.partner"/>
+                                <td t-out="o.start"/>
+                                <td t-out="o.end"/>
+                                <td t-out="o.until"/>
+                                <td class="text-end" t-out="o.qty"/>
                             </tr>
                         </t>
                     </tbody>
                 </table>
 
                 <h6>Repairs affecting availability</h6>
-                <table class="table table-sm table-striped mb-3" t-if="props.detail.repairs.length">
+                <table class="table table-sm table-striped mb-3" t-if="this.props.detail.repairs.length">
                     <thead><tr><th>Repair</th><th>Status</th><th>Scheduled</th><th class="text-end">Qty</th></tr></thead>
                     <tbody>
-                        <t t-foreach="props.detail.repairs" t-as="r" t-key="r_index">
+                        <t t-foreach="this.props.detail.repairs" t-as="r" t-key="r_index">
                             <tr>
-                                <td t-esc="r.name"/>
-                                <td t-esc="r.state"/>
-                                <td t-esc="r.schedule"/>
-                                <td class="text-end" t-esc="r.qty"/>
+                                <td t-out="r.name"/>
+                                <td t-out="r.state"/>
+                                <td t-out="r.schedule"/>
+                                <td class="text-end" t-out="r.qty"/>
                             </tr>
                         </t>
                     </tbody>
                 </table>
-                <p class="text-muted" t-if="!props.detail.repairs.length">No repairs affect this interval.</p>
+                <p class="text-muted" t-if="!this.props.detail.repairs.length">No repairs affect this interval.</p>
 
                 <h6>Availability elsewhere</h6>
                 <div class="row">
                     <div class="col-6">
                         <div class="small text-muted mb-1">Same company (internal transfer)</div>
-                        <table class="table table-sm" t-if="props.detail.elsewhere.same_company.length">
+                        <table class="table table-sm" t-if="this.props.detail.elsewhere.same_company.length">
                             <tbody>
-                                <t t-foreach="props.detail.elsewhere.same_company" t-as="e" t-key="e_index">
-                                    <tr><td t-esc="e.warehouse_name"/><td class="text-end" t-esc="e.available"/></tr>
+                                <t t-foreach="this.props.detail.elsewhere.same_company" t-as="e" t-key="e_index">
+                                    <tr><td t-out="e.warehouse_name"/><td class="text-end" t-out="e.available"/></tr>
                                 </t>
                             </tbody>
                         </table>
-                        <p class="text-muted small" t-if="!props.detail.elsewhere.same_company.length">—</p>
+                        <p class="text-muted small" t-if="!this.props.detail.elsewhere.same_company.length">—</p>
                     </div>
                     <div class="col-6">
                         <div class="small text-muted mb-1">Other company (intercompany)</div>
-                        <table class="table table-sm" t-if="props.detail.elsewhere.other_company.length">
+                        <table class="table table-sm" t-if="this.props.detail.elsewhere.other_company.length">
                             <tbody>
-                                <t t-foreach="props.detail.elsewhere.other_company" t-as="e" t-key="e_index">
+                                <t t-foreach="this.props.detail.elsewhere.other_company" t-as="e" t-key="e_index">
                                     <tr>
-                                        <td><t t-esc="e.company_name"/> / <t t-esc="e.warehouse_name"/></td>
-                                        <td class="text-end" t-esc="e.available"/>
+                                        <td><t t-out="e.company_name"/> / <t t-out="e.warehouse_name"/></td>
+                                        <td class="text-end" t-out="e.available"/>
                                     </tr>
                                 </t>
                             </tbody>
                         </table>
-                        <p class="text-muted small" t-if="!props.detail.elsewhere.other_company.length">—</p>
+                        <p class="text-muted small" t-if="!this.props.detail.elsewhere.other_company.length">—</p>
                     </div>
                 </div>
             </div>

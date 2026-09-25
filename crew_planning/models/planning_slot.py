@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import _, api, fields, models
+from odoo import Command, _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
@@ -45,10 +45,23 @@ class PlanningSlot(models.Model):
         # flag, so the portal treats the shift as a fresh, live assignment
         # again. Skip when the write already manages the flag itself (e.g. the
         # report action) or when the shift is being unassigned.
-        if vals.get('resource_id') and 'crew_unavailable_reported' not in vals:
-            vals = dict(vals, crew_unavailable_reported=False,
-                        crew_unavailable_reason=False)
-        return super().write(vals)
+        #
+        # Odoo 20: planning.slot.resource_id became the many2many resource_ids,
+        # whose write value is a command list — truthy even when it CLEARS the
+        # assignment.  So decide on the resulting assignment, after super().
+        touches_resources = (
+            'resource_ids' in vals and 'crew_unavailable_reported' not in vals
+        )
+        res = super().write(vals)
+        if touches_resources:
+            reassigned = self.filtered(
+                lambda slot: slot.resource_ids and slot.crew_unavailable_reported)
+            if reassigned:
+                reassigned.write({
+                    'crew_unavailable_reported': False,
+                    'crew_unavailable_reason': False,
+                })
+        return res
 
     work_declaration_ids = fields.One2many(
         'crew.work.declaration', 'slot_id', string="Work Declarations")
@@ -103,7 +116,7 @@ class PlanningSlot(models.Model):
         not passed — otherwise the assignment is kept for the planner to handle
         (reassign / arrange a switch)."""
         for slot in self:
-            emp_name = slot.employee_id.display_name or _("Crew member")
+            emp_name = ", ".join(slot.employee_ids.mapped('display_name')) or _("Crew member")
             slot.crew_unavailable_reported = True
             if reason:
                 slot.crew_unavailable_reason = reason
@@ -124,7 +137,7 @@ class PlanningSlot(models.Model):
             if slot.crew_request_id:
                 slot.crew_request_id.message_post(body=body)
             if may_unassign:
-                slot.resource_id = False  # unassign -> open shift
+                slot.resource_ids = [Command.clear()]  # unassign -> open shift
         return True
 
     @api.onchange('task_id')

@@ -175,7 +175,7 @@ class TestKioskLookup(TransactionCase):
         printer = self.env['pos.printer'].create({
             'name': 'KL Test Epson',
             'printer_type': 'epson_epos',
-            'epson_printer_ip': '192.168.1.200',
+            'printer_ip': '192.168.1.200',
         })
         self.profile.printer_mode = 'pos_epos_ip'
         self.profile.pos_printer_id = printer

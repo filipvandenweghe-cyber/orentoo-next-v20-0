@@ -31,7 +31,7 @@ class TestRentalReturnSerial(TransactionCase):
         cls.partner = cls.env['res.partner'].create({'name': 'RRS Client'})
         cls.crate = cls.env['product.product'].create({
             'name': 'RRS Crate', 'type': 'consu', 'is_storable': True,
-            'tracking': 'serial', 'rent_ok': True})
+            'tracking': 'serial', 'rent_periodicity': 'days'})
         cls.lotA = cls.env['stock.lot'].create(
             {'name': 'RRS-A', 'product_id': cls.crate.id})
         cls.lotB = cls.env['stock.lot'].create(
@@ -64,7 +64,7 @@ class TestRentalReturnSerial(TransactionCase):
         })
         move = self.env['stock.move'].create({
             'product_id': self.crate.id, 'product_uom_qty': qty,
-            'product_uom': self.crate.uom_id.id, 'picking_id': pick.id,
+            'uom_id': self.crate.uom_id.id, 'picking_id': pick.id,
             'location_id': self.rloc.id, 'location_dest_id': self.stock.id,
             'sale_line_id': sol.id,
         })
@@ -153,7 +153,7 @@ class TestRentalReturnSerial(TransactionCase):
         if rt:
             vals['picking_type_id'] = rt.id
         ro = self.env['repair.order'].create(vals)
-        ro.write({'state': 'under_repair'})
+        ro.write({'state': 'confirmed'})
         self.Log.rsl_log_repair_override('RRS-A', False, ro.id)
         self.assertEqual(self.Log.search_count([
             ('lot_id', '=', self.lotA.id),

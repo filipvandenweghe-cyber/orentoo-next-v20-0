@@ -37,7 +37,7 @@ class RentalSetAddComponentWizard(models.TransientModel):
         comodel_name='product.product',
         string='Component Product',
         required=True,
-        domain="['|', '|', ('sale_ok', '=', True), ('rent_ok', '=', True), ('product_tmpl_id.is_rental_set', '=', True)]",
+        domain="['|', '|', ('sale_ok', '=', True), ('rent_periodicity', '!=', False), ('product_tmpl_id.is_rental_set', '=', True)]",
     )
     quantity_per_set = fields.Float(
         string='Quantity per Set Unit',

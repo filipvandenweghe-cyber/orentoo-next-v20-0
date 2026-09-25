@@ -53,27 +53,27 @@ class TestSaleFlow(TransactionCase):
             'list_price': 0.0,
         })
 
-        # Rental product (rent_ok=True)
+        # Rental product (rent_periodicity=True)
         cls.rental_product = cls.env['product.product'].create({
             'name': 'Rental Product',
             'type': 'consu',
             'list_price': 10.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'sales_price_broken_lost': 50.0,
         })
-        # Sale product (rent_ok=False) to add during delivery
+        # Sale product (rent_periodicity=False) to add during delivery
         cls.sale_product_extra = cls.env['product.product'].create({
             'name': 'Extra Sale Product',
             'type': 'consu',
             'list_price': 25.0,
-            'rent_ok': False,
+            'rent_periodicity': False,
         })
         # Auto-reconcile product
         cls.auto_reconcile_product = cls.env['product.product'].create({
             'name': 'Auto Reconcile Product',
             'type': 'consu',
             'list_price': 15.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
             'auto_reconcile_delivered_qty': True,
         })
 
@@ -249,7 +249,7 @@ class TestSaleFlow(TransactionCase):
             'description_picking': 'Test Move',
             'product_id': self.product_a.id,
             'product_uom_qty': 4,
-            'product_uom': self.product_a.uom_id.id,
+            'uom_id': self.product_a.uom_id.id,
             'location_id': self.env.ref('stock.stock_location_stock').id,
             'location_dest_id': self.env.ref('stock.stock_location_customers').id,
             'sale_line_id': order.order_line[0].id,
@@ -334,7 +334,7 @@ class TestSaleFlow(TransactionCase):
         Quant = self.env['stock.quant']
         sp = self.env['product.product'].create({
             'name': 'SF Serial', 'type': 'consu', 'is_storable': True,
-            'tracking': 'serial', 'rent_ok': True})
+            'tracking': 'serial', 'rent_periodicity': 'days'})
         l1 = self.env['stock.lot'].create({'name': 'SF-L1', 'product_id': sp.id})
         l2 = self.env['stock.lot'].create({'name': 'SF-L2', 'product_id': sp.id})
         # Both serials are currently at the client (rental location).
@@ -394,7 +394,7 @@ class TestSaleFlow(TransactionCase):
         })
         self.env['stock.move'].create({
             'product_id': self.rental_product.id, 'product_uom_qty': 1,
-            'product_uom': self.rental_product.uom_id.id, 'picking_id': ret.id,
+            'uom_id': self.rental_product.uom_id.id, 'picking_id': ret.id,
             'location_id': rloc.id, 'location_dest_id': wh.lot_stock_id.id,
             'sale_line_id': sol.id,
         })
@@ -576,7 +576,7 @@ class TestSaleFlow(TransactionCase):
             'description_picking': 'Move 1',
             'product_id': self.product_a.id,
             'product_uom_qty': 2,
-            'product_uom': self.product_a.uom_id.id,
+            'uom_id': self.product_a.uom_id.id,
             'location_id': loc_stock.id,
             'location_dest_id': loc_customer.id,
             'sale_line_id': order.order_line[0].id,
@@ -586,7 +586,7 @@ class TestSaleFlow(TransactionCase):
             'description_picking': 'Move 2',
             'product_id': self.product_a.id,
             'product_uom_qty': 2,
-            'product_uom': self.product_a.uom_id.id,
+            'uom_id': self.product_a.uom_id.id,
             'location_id': loc_stock.id,
             'location_dest_id': loc_customer.id,
             'sale_line_id': order.order_line[0].id,
@@ -738,10 +738,10 @@ class TestSaleFlow(TransactionCase):
         now = fields.Datetime.now()
         prod_a = self.env['product.product'].create({
             'name': 'Swap A', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True, 'list_price': 10.0})
+            'rent_periodicity': 'days', 'list_price': 10.0})
         prod_b = self.env['product.product'].create({
             'name': 'Swap B', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True, 'list_price': 10.0})
+            'rent_periodicity': 'days', 'list_price': 10.0})
         order = self.env['sale.order'].with_context(in_rental_app=True).create({
             'partner_id': self.partner.id,
             'rental_start_date': now,
@@ -794,7 +794,7 @@ class TestSaleFlow(TransactionCase):
             'product_id': self.sale_product_extra.id,
             'product_uom_qty': 0,
             'quantity': 3,
-            'product_uom': self.sale_product_extra.uom_id.id,
+            'uom_id': self.sale_product_extra.uom_id.id,
             'picking_id': out_picking.id,
             'location_id': out_picking.location_id.id,
             'location_dest_id': out_picking.location_dest_id.id,
@@ -849,7 +849,7 @@ class TestSaleFlow(TransactionCase):
             'product_id': self.sale_product_extra.id,
             'product_uom_qty': 0,
             'quantity': 2,
-            'product_uom': self.sale_product_extra.uom_id.id,
+            'uom_id': self.sale_product_extra.uom_id.id,
             'picking_id': out_picking.id,
             'location_id': out_picking.location_id.id,
             'location_dest_id': out_picking.location_dest_id.id,
@@ -901,7 +901,7 @@ class TestSaleFlow(TransactionCase):
             'product_id': self.sale_product_extra.id,
             'product_uom_qty': 0,
             'quantity': 2,
-            'product_uom': self.sale_product_extra.uom_id.id,
+            'uom_id': self.sale_product_extra.uom_id.id,
             'picking_id': out_picking.id,
             'location_id': out_picking.location_id.id,
             'location_dest_id': out_picking.location_dest_id.id,
@@ -921,17 +921,12 @@ class TestSaleFlow(TransactionCase):
         initial_fl_count = len(extra_fl)
         self.assertEqual(extra_fl[0].delivered_qty, 2)
 
-        # Create return for 1 unit using the return wizard
-        return_wiz = self.env['stock.return.picking'].with_context(
-            active_id=out_picking.id, active_model='stock.picking',
-        ).create({})
-        for line in return_wiz.product_return_moves:
-            if line.product_id == self.sale_product_extra:
-                line.quantity = 1
-            else:
-                line.quantity = 0
-        res = return_wiz.action_create_returns()
-        return_picking = self.env['stock.picking'].browse(res['res_id'])
+        # Create return for 1 unit.  Odoo 20 dropped the
+        # stock.return.picking wizard: the return picking is copied from the
+        # original one and its move demands are set directly.
+        return_picking = out_picking._create_return()
+        for move in return_picking.move_ids:
+            move.product_uom_qty = 1 if move.product_id == self.sale_product_extra else 0
 
         # Validate the return
         self._validate_picking_with_done_qty(
@@ -1002,21 +997,28 @@ class TestSaleFlow(TransactionCase):
     # ── S00925: lost/broken wizard opens with correct quantities ─────
 
     def _create_return_picking(self, out_picking, product_qty_map):
-        """Helper: create a return picking for specific products/quantities.
+        """Helper: return the return picking for specific products/quantities.
 
         product_qty_map: dict {product_record: return_qty}
-        Returns the created return picking.
+        Returns the return picking, confirmed and reserved.
+
+        Odoo 20 dropped the ``stock.return.picking`` wizard and creates the
+        rental return picking together with the delivery, linked to it through
+        ``return_id`` — and ``sale_stock_renting._create_return()`` refuses to
+        build a *second* return for rental lines.  So reuse the picking the
+        rental flow already made (building one only when there is none, e.g.
+        for plain sale products) and set the demands the test needs.
         """
-        return_wiz = self.env['stock.return.picking'].with_context(
-            active_id=out_picking.id, active_model='stock.picking',
-        ).create({})
-        for line in return_wiz.product_return_moves:
-            if line.product_id in product_qty_map:
-                line.quantity = product_qty_map[line.product_id]
-            else:
-                line.quantity = 0
-        res = return_wiz.action_create_returns()
-        return self.env['stock.picking'].browse(res['res_id'])
+        return_picking = out_picking.return_ids.filtered(
+            lambda p: p.state not in ('done', 'cancel')
+        )[:1]
+        if not return_picking:
+            return_picking = out_picking._create_return()
+        for move in return_picking.move_ids:
+            move.product_uom_qty = product_qty_map.get(move.product_id, 0)
+        return_picking.action_confirm()
+        return_picking.action_assign()
+        return return_picking
 
     def test_22_lost_broken_wizard_correct_quantities(self):
         """S00925: lost/broken wizard must show correct returned/missing qty.
@@ -1134,9 +1136,9 @@ class TestSaleFlow(TransactionCase):
     # ── S00724: rental product detection for delivery-added items ─────
 
     def test_24_delivery_added_rental_product_detected(self):
-        """S00724: rent_ok product added during delivery → is_rental=True.
+        """S00724: rent_periodicity product added during delivery → is_rental=True.
 
-        A product with rent_ok=True delivered on a rental order must have
+        A product with rent_periodicity=True delivered on a rental order must have
         its flow line marked as is_rental=True so it's expected back on
         the return picking.
         """
@@ -1145,7 +1147,7 @@ class TestSaleFlow(TransactionCase):
             'name': 'Extra Rental Item',
             'type': 'consu',
             'list_price': 30.0,
-            'rent_ok': True,
+            'rent_periodicity': 'days',
         })
 
         order = self._create_rental_order([
@@ -1161,7 +1163,7 @@ class TestSaleFlow(TransactionCase):
             'product_id': extra_rental.id,
             'product_uom_qty': 0,
             'quantity': 1,
-            'product_uom': extra_rental.uom_id.id,
+            'uom_id': extra_rental.uom_id.id,
             'picking_id': out_picking.id,
             'location_id': out_picking.location_id.id,
             'location_dest_id': out_picking.location_dest_id.id,
@@ -1179,7 +1181,7 @@ class TestSaleFlow(TransactionCase):
         self.assertTrue(extra_fl)
         self.assertTrue(
             extra_fl.is_rental,
-            "rent_ok product added during delivery must be marked is_rental=True",
+            "rent_periodicity product added during delivery must be marked is_rental=True",
         )
         self.assertTrue(extra_fl.added_during_delivery)
 
@@ -1334,7 +1336,9 @@ class TestSaleFlow(TransactionCase):
             lambda m: m.product_id == self.rental_product
             and m.state not in ('cancel',)
         )
-        bo_demand_before = bo_move.product_uom_qty
+        # The backorder may carry the remaining demand on more than one move
+        # (sale_flow's return reconciliation can add one), so compare the total.
+        bo_demand_before = sum(bo_move.mapped('product_uom_qty'))
         self.assertEqual(bo_demand_before, 2, "Backorder demand must be 2")
 
         # Now run the wizard: mark 1 as lost
@@ -1368,7 +1372,7 @@ class TestSaleFlow(TransactionCase):
         )
         if active_bo_moves:
             self.assertEqual(
-                active_bo_moves[0].product_uom_qty, 1,
+                sum(active_bo_moves.mapped('product_uom_qty')), 1,
                 "Backorder demand must be reduced from 2 to 1 (1 lost)",
             )
         else:
@@ -1519,7 +1523,7 @@ class TestSaleFlow(TransactionCase):
             'product_id': self.sale_product_extra.id,
             'product_uom_qty': 0,
             'quantity': 2,
-            'product_uom': self.sale_product_extra.uom_id.id,
+            'uom_id': self.sale_product_extra.uom_id.id,
             'picking_id': out_picking.id,
             'location_id': out_picking.location_id.id,
             'location_dest_id': out_picking.location_dest_id.id,
@@ -1612,7 +1616,7 @@ class TestSaleFlow(TransactionCase):
         """
         prod = self.env['product.product'].create({
             'name': 'BO Rental', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True, 'list_price': 10.0,
+            'rent_periodicity': 'days', 'list_price': 10.0,
         })
         wh = self.env['stock.warehouse'].search(
             [('company_id', '=', self.env.company.id)], limit=1)
@@ -1692,7 +1696,7 @@ class TestSaleFlow(TransactionCase):
         """
         prod = self.env['product.product'].create({
             'name': 'MS Rental', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True, 'list_price': 10.0,
+            'rent_periodicity': 'days', 'list_price': 10.0,
         })
         wh = self.env['stock.warehouse'].search(
             [('company_id', '=', self.env.company.id)], limit=1)
@@ -1758,7 +1762,7 @@ class TestSaleFlow(TransactionCase):
         special undo needed, just don't ship the excess."""
         prod = self.env['product.product'].create({
             'name': 'OP Rental', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True, 'list_price': 10.0,
+            'rent_periodicity': 'days', 'list_price': 10.0,
         })
         wh = self.env['stock.warehouse'].search(
             [('company_id', '=', self.env.company.id)], limit=1)
@@ -1818,7 +1822,7 @@ class TestSaleFlow(TransactionCase):
         expect back the delivered qty, not the ordered qty (S01788)."""
         prod = self.env['product.product'].create({
             'name': 'OD Rental', 'type': 'consu', 'is_storable': True,
-            'rent_ok': True, 'list_price': 10.0,
+            'rent_periodicity': 'days', 'list_price': 10.0,
         })
         wh = self.env['stock.warehouse'].search(
             [('company_id', '=', self.env.company.id)], limit=1)
