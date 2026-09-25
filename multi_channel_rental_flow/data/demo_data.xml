@@ -29,7 +29,13 @@
              ========================================================== -->
 
         <record id="payment.payment_provider_demo" model="payment.provider">
-            <field name="state">test</field>
+            <!-- Odoo 20 replaced payment.provider.state (disabled/test/enabled)
+                 by 'active' (archived == disabled) + 'is_live' (live vs. test
+                 mode). The old <field name="state">test</field> raises
+                 ValueError: Invalid field 'state' in 'payment.provider' and
+                 aborted the whole demo file. -->
+            <field name="active" eval="True"/>
+            <field name="is_live" eval="False"/>
         </record>
 
         <!-- ==========================================================
@@ -168,7 +174,10 @@
         <record id="demo_website_rental_profile" model="multi.channel.rental.profile">
             <field name="name">Website Rental Flow</field>
             <field name="profile_type">website</field>
-            <field name="website_id" ref="website.default_website"/>
+            <!-- Odoo 20 moved the default website record to the base module:
+                 the xmlid is base.default_website, website.default_website is
+                 gone (ValueError: External ID not found in the system). -->
+            <field name="website_id" ref="base.default_website"/>
             <field name="warehouse_id" ref="stock.warehouse0"/>
             <field name="enable_rental_items" eval="True"/>
             <field name="enable_event_tickets" eval="True"/>
