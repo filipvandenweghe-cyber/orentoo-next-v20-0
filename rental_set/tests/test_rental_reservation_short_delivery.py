@@ -177,9 +177,21 @@ class TestRentalShortDeliveryRelease(TransactionCase):
         self.assertAlmostEqual(
             line._rental_custody_outstanding_qty(), 1.0, places=2,
             msg="1 of the 2 delivered units is written off")
+        # Ask about a point INSIDE the rental (an hour in), not the line's own
+        # start_date.  ``_get_unavailable_qty`` returns the PEAK commitment
+        # over the window, and the write-off enters the step function at
+        # ``now`` (native's early-return adjustment on qty_returned) — a past
+        # peak can never be lowered by a release happening later.  Querying
+        # from start_date therefore still sees the 2 units that WERE out
+        # during the sub-second slice between the order's start and the
+        # write-off, so the result depended on whether create → deliver →
+        # scrap happened to land inside a single wall-clock second (Odoo
+        # datetimes are truncated to the second).  Starting the window past
+        # ``now`` puts the release before ``from_date`` unconditionally.
         self.assertAlmostEqual(
             self.prod._get_unavailable_qty(
-                line.start_date, line.return_date, warehouse_id=self.wh.id),
+                line.start_date + timedelta(hours=1), line.return_date,
+                warehouse_id=self.wh.id),
             1.0, places=2,
             msg="Scrapped unit must be released from the commitment")
         self.assertAlmostEqual(
