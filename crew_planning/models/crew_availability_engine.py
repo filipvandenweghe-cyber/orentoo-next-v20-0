@@ -70,8 +70,25 @@ class CrewAvailabilityEngine(models.AbstractModel):
         return fields.Datetime.now()
 
     def _horizon_end(self, now=None):
+        """End of the rolling blanket-unavailability horizon, snapped to a DAY
+        boundary — never the bare instant ``now + N months``.
+
+        Same reasoning as ``_coverage_start`` below, for the same reason
+        idempotency demands it: ``roll_and_repair`` deletes and rebuilds the
+        future crew-managed leaves on every run, so if the horizon carried the
+        current second, every single run would rewrite the last leave with a
+        ``date_to`` a few seconds later than the one before.  The repair would
+        never converge, each cron pass would dirty the rows (and their
+        write_date / audit trail), and the "fully idempotent" promise in
+        ``roll_and_repair`` would be false — which is exactly what
+        ``test_06_roll_is_idempotent`` caught.
+
+        Rounded UP to the end of that day so the horizon is never shorter than
+        the configured N months (R2.3).
+        """
         now = now or self._now()
-        return now + relativedelta(months=self._unavailability_months())
+        end = now + relativedelta(months=self._unavailability_months())
+        return datetime.combine(end.date(), time.min) + timedelta(days=1)
 
     def _coverage_start(self, now=None):
         """Blanket unavailability is anchored to the START of the day (with a

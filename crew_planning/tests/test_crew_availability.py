@@ -125,6 +125,28 @@ class TestCrewAvailability(TransactionCase):
         self.assertEqual(sorted(before), sorted(after),
                          "Repair must be idempotent.")
 
+    def test_06b_horizon_end_is_stable_within_the_day(self):
+        """The rolling horizon must not carry the current second.
+
+        ``roll_and_repair`` rebuilds the future leaves on every run, so a
+        horizon computed as the bare ``now + N months`` made the repair rewrite
+        the last leave with a ``date_to`` a few seconds later each time — real
+        churn, and a test (test_06 above) that only failed when a second
+        happened to tick between the two runs.  This guard is deterministic.
+        """
+        now = self.now
+        self.assertEqual(
+            self.engine._horizon_end(now),
+            self.engine._horizon_end(now + timedelta(seconds=1)),
+            "Two runs a second apart must agree on the horizon.")
+        horizon = self.engine._horizon_end(now)
+        self.assertEqual(
+            (horizon.hour, horizon.minute, horizon.second), (0, 0, 0),
+            "The horizon is snapped to a day boundary.")
+        self.assertGreaterEqual(
+            horizon, now + relativedelta(months=12),
+            "Snapping rounds UP, so coverage is never shorter than N months.")
+
     def test_07_disable_restores_schedule(self):
         emp = self._new_crew()
         resource = emp.resource_id
