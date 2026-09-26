@@ -44,6 +44,13 @@
                 <field name="rental_on_option"
                        invisible="not is_rental_order"
                        readonly="state not in ('draft', 'sent')"/>
+                <!-- RS-02 / RS-02a: per-deal opt-in, hidden unless the company
+                     allows it, and frozen once the order is confirmed (the
+                     write() guard in models/sale_order.py enforces it). -->
+                <field name="rental_set_detail_allowed" invisible="1"/>
+                <field name="rental_set_show_detail"
+                       invisible="not rental_set_detail_allowed"
+                       readonly="state not in ('draft', 'sent')"/>
             </xpath>
 
             <!-- ── 1. Invisible carrier fields ────────────────────────────── -->
@@ -54,7 +61,7 @@
                 <field name="set_level"         column_invisible="True"/>
                 <field name="set_sequence_path" column_invisible="True"/>
                 <field name="set_parent_line_id" column_invisible="True"/>
-                <field name="set_indent_label"  column_invisible="True"/>
+                <field name="set_child_count"   column_invisible="True"/>
                 <field name="set_pricing_mode"  column_invisible="True"/>
                 <field name="set_allocated_price" column_invisible="True"/>
                 <field name="set_availability"   column_invisible="True"/>
@@ -68,7 +75,6 @@
             <xpath expr="//field[@name='order_line']//list"
                    position="attributes">
                 <attribute name="decoration-bf">is_set and not is_set_component</attribute>
-                <attribute name="decoration-primary">is_set and is_set_component</attribute>
                 <attribute name="decoration-muted">is_set_component and not is_set and visible_to_customer</attribute>
                 <attribute name="decoration-warning">(state in ['draft', 'sent'] and is_product_archived) or sale_line_warn_msg or (is_set_component and not is_set and not visible_to_customer)</attribute>
             </xpath>
@@ -76,17 +82,18 @@
             <!-- ── 3. Interactive fold column (replaces static indent label) ─ -->
             <!--
                 set_components_folded is the field the widget is bound to.
-                The widget (rental_set_fold) reads is_set, is_set_component
-                and set_indent_label from the same record to decide what to render:
-                  • Set parent     → chevron button (toggle collapse)
-                  • Component      → indent label (static)
-                  • Normal line    → empty cell
+                The widget (rental_set_fold) reads is_set and set_child_count
+                to decide what to render (RS-42/RS-45):
+                  • row WITH children → one caret button (toggle collapse), plus
+                    a muted count when folded, so nothing hides without a trace
+                  • every other row   → empty cell.  Depth is shown by indenting
+                    the product cell (getCellClass), not in this column.
             -->
             <xpath expr="//field[@name='order_line']//list//field[@name='sequence'][@widget='handle']"
                    position="after">
                 <field name="set_components_folded"
                        string=" "
-                       width="72px"
+                       width="40px"
                        widget="list.rental_set_fold"
                        nolabel="1"/>
             </xpath>
@@ -102,10 +109,14 @@
             -->
             <xpath expr="//field[@name='order_line']//list//column[@name='product_and_description']"
                    position="after">
+                <!-- RS-06: the toggle is only offered when the company allows
+                     set contents on customer documents; otherwise it has no
+                     effect and would only confuse. -->
                 <field name="visible_to_customer"
                        string="Visible"
                        widget="boolean_toggle"
                        invisible="not is_set_component"
+                       column_invisible="not parent.rental_set_detail_allowed"
                        optional="hide"/>
             </xpath>
 

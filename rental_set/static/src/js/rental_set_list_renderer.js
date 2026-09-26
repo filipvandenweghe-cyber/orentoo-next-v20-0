@@ -34,12 +34,20 @@
 import { patch } from "@web/core/utils/patch";
 import { SaleOrderLineListRenderer } from "@sale/js/sale_order_line_field/sale_order_line_field";
 import { onWillRender } from "@web/owl2/utils";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { useOwnedDialogs } from "@web/core/utils/hooks";
+import { _t } from "@web/core/l10n/translation";
+
+/** Indentation step per nesting level, capped so a deep set cannot eat the
+ *  description column (RS-11/RS-40). Mirrors o_rental_set_indent_* in SCSS. */
+const MAX_INDENT_LEVEL = 4;
 
 patch(SaleOrderLineListRenderer.prototype, {
 
     setup() {
         super.setup();
         this.setParentMap = new Map();
+        this.addDialog = useOwnedDialogs();
         onWillRender(() => this.buildSetParentMap());
     },
 
@@ -57,6 +65,12 @@ patch(SaleOrderLineListRenderer.prototype, {
         if (record.data.is_set) {
             const descendants = this._collectDescendantRecords(record);
             if (descendants.length) {
+                // RS-52: never delete rows the user cannot see.  A collapsed
+                // set hides its components, so state what will go before the
+                // cascade runs.
+                if (!(await this._confirmSetDeletion(record, descendants))) {
+                    return;
+                }
                 // Delete bottom-up (deepest children first)
                 for (const desc of descendants.reverse()) {
                     if (this.activeActions.onDelete) {
@@ -66,6 +80,55 @@ patch(SaleOrderLineListRenderer.prototype, {
             }
         }
         return super.onDeleteRecord(record);
+    },
+
+    /**
+     * Ask before removing a whole Rental Set (RS-52/RS-53).
+     *
+     * The wording follows what will actually happen: on a draft/sent order the
+     * lines are deleted; on a confirmed order Odoo forbids deleting lines, so
+     * `sale.order.line.unlink` zeroes the components instead and cancels their
+     * moves.
+     *
+     * @param  {Object}   record       the set line being deleted
+     * @param  {Object[]} descendants  its descendants, DFS order
+     * @returns {Promise<boolean>} true when the user confirmed
+     */
+    _confirmSetDeletion(record, descendants) {
+        const setName = record.data.product_id?.display_name || _t("this set");
+        const draft = ["draft", "sent"].includes(record.data.state);
+        const lines = descendants
+            .map((rec) => {
+                const level = Math.max((rec.data.set_level || 1) - 1, 0);
+                const name = rec.data.product_id?.display_name || "";
+                const qty = rec.data.product_uom_qty;
+                return `${"    ".repeat(level)}• ${name} — ${qty}`;
+            })
+            .join("\n");
+        const intro = draft
+            ? _t(
+                  "%(name)s will be removed together with the %(count)s lines it contains:",
+                  { name: setName, count: descendants.length }
+              )
+            : _t(
+                  "%(name)s will be emptied (quantities set to 0) together with the %(count)s lines it contains:",
+                  { name: setName, count: descendants.length }
+              );
+        return new Promise((resolve) => {
+            this.addDialog(
+                ConfirmationDialog,
+                {
+                    title: draft ? _t("Remove this rental set?") : _t("Empty this rental set?"),
+                    body: `${intro}\n\n${lines}`,
+                    confirmLabel: draft ? _t("Remove set") : _t("Empty set"),
+                    confirmClass: "btn-primary",
+                    confirm: () => resolve(true),
+                    cancelLabel: _t("Cancel"),
+                    cancel: () => resolve(false),
+                },
+                { onClose: () => resolve(false) }
+            );
+        });
     },
 
     /**
@@ -128,7 +191,46 @@ patch(SaleOrderLineListRenderer.prototype, {
         ) {
             classNames = `${classNames} o_rental_set_hidden`;
         }
+        // RS-43: subordinate a set line the way Odoo 20 subordinates a section
+        // in this same list — a tint + weight ladder, two levels deep.
+        if (record.data.is_set) {
+            classNames = record.data.is_set_component
+                ? `${classNames} o_rental_set_parent_nested`
+                : `${classNames} o_rental_set_parent`;
+        }
         return classNames;
+    },
+
+    /**
+     * @override
+     * RS-40: show nesting depth by indenting the product cell, the way core
+     * indents its hierarchical list (`account_account_list_view` adds
+     * `o_list_indent_#{i}` from getCellClass).  Like core, the indentation is
+     * dropped as soon as the user sorts, filters or groups the list, because
+     * the rows are then no longer in parent → child order and an indent would
+     * claim a hierarchy that is not on screen.
+     */
+    getCellClass(column, record) {
+        let classNames = super.getCellClass(column, record);
+        if (
+            column.name === "product_and_description" &&
+            record.data.is_set_component &&
+            this._rentalSetIndentAllowed()
+        ) {
+            const level = Math.min(record.data.set_level || 1, MAX_INDENT_LEVEL);
+            classNames = `${classNames} o_rental_set_indent_${level}`;
+        }
+        return classNames;
+    },
+
+    /** False while the list is reordered, filtered or grouped (see above). */
+    _rentalSetIndentAllowed() {
+        const list = this.props.list;
+        return !(
+            (list.orderBy || []).length ||
+            (list.domain || []).length ||
+            (list.groupBy || []).length
+        );
     },
 
     // ── One-click interaction overrides ──────────────────────────────────

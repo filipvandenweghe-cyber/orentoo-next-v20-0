@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Rental set contents on the CUSTOMER documents  —  RS-10…RS-17
+        =============================================================
+        A shown component (see sale.order._rental_set_shows_line) prints:
+          • indented by set_level * 8px, ADDED to the indentation the native
+            template already computed for sections/subsections (RS-11);
+          • with its quantity and UoM (RS-12);
+          • with NO unit price, discount, taxes or subtotal — the cells are
+            empty, never 0.00 (RS-13).  The set line keeps its price (RS-10).
+
+        How the prices are suppressed
+        ·····························
+        Both native templates already guard every price cell with a per-row
+        flag — `collapse_prices` (sale) / `hide_prices` (invoice) — used by
+        Odoo's own section and combo features.  We reuse that flag instead of
+        rewriting each cell's condition, so a change to a cell in core keeps
+        working here.
+
+        Two traps this file works around (documented in
+        docs/rental_set_requirements.md §5.1):
+          1. In the SALE template `collapse_prices` is assigned only inside the
+             section branches, so it deliberately LEAKS across loop iterations.
+             We therefore save it, override it for the component row, and
+             restore it immediately after the row.
+          2. In the INVOICE template the whole row is guarded by
+             `t-if="not hide_details and not hide_prices"`, so setting
+             hide_prices outside the row would DELETE the line.  We set it
+             INSIDE the <tr>, after that guard has been evaluated.
+    -->
+
+    <!-- ── 1. Quotation / sales order PDF ──────────────────────────────── -->
+    <template id="report_saleorder_document_rental_set"
+              inherit_id="sale.report_saleorder_document">
+
+        <xpath expr="//t[@t-set='padding_style']" position="after">
+            <t t-set="rs_component" t-value="line.is_set_component"/>
+            <!-- Saved AFTER the section branches ran, so restoring it below is
+                 a no-op on section rows and cannot undo a section's own
+                 collapse_prices. -->
+            <t t-set="rs_saved_collapse_prices" t-value="collapse_prices"/>
+            <t t-if="rs_component">
+                <t t-set="padding_style"
+                   t-value="'padding-left:' + str(((line_padding or 0) + line._rs_report_indent_level()) * 8) + 'px'"/>
+                <t t-set="collapse_prices" t-value="True"/>
+            </t>
+        </xpath>
+
+        <!-- The taxes cell is the one price cell core does NOT guard with
+             collapse_prices, so it needs its own condition (RS-13). -->
+        <xpath expr="//td[@name='td_product_taxes']/span" position="attributes">
+            <attribute name="t-if">not rs_component</attribute>
+        </xpath>
+
+        <xpath expr="//tr[@name='tr_product']" position="after">
+            <t t-set="collapse_prices" t-value="rs_saved_collapse_prices"/>
+        </xpath>
+
+    </template>
+
+    <!-- ── 2. Customer portal (the page the client signs) ──────────────── -->
+    <template id="sale_order_portal_content_rental_set"
+              inherit_id="sale.sale_order_portal_content">
+
+        <!-- Desktop table: same shape as the PDF.  Here core guards EVERY
+             price cell (taxes included) with collapse_prices, so the flag
+             alone is enough. -->
+        <xpath expr="//t[@t-set='padding_style']" position="after">
+            <t t-set="rs_component" t-value="line.is_set_component"/>
+            <t t-set="rs_saved_collapse_prices" t-value="collapse_prices"/>
+            <t t-if="rs_component">
+                <t t-set="padding_style"
+                   t-value="'padding-left:' + str(((line_padding or 0) + line._rs_report_indent_level()) * 8) + 'px'"/>
+                <t t-set="collapse_prices" t-value="True"/>
+            </t>
+        </xpath>
+
+        <xpath expr="//tr[@name='tr_product']" position="after">
+            <t t-set="collapse_prices" t-value="rs_saved_collapse_prices"/>
+        </xpath>
+
+        <!-- Phone card layout: its own variable set (…_m) and no table cells.
+             Prices are suppressed the same way; the cards carry no
+             indentation, which is a deliberate limitation of that layout. -->
+        <xpath expr="//t[@t-set='is_combo_m']" position="after">
+            <t t-set="rs_component_m" t-value="line.is_set_component"/>
+            <t t-set="rs_saved_collapse_prices_m" t-value="collapse_prices_m"/>
+            <t t-if="rs_component_m">
+                <t t-set="collapse_prices_m" t-value="True"/>
+            </t>
+        </xpath>
+
+    </template>
+
+    <!-- ── 3. Invoice PDF ──────────────────────────────────────────────── -->
+    <template id="report_invoice_document_rental_set"
+              inherit_id="account.report_invoice_document">
+
+        <xpath expr="//t[@t-set='hide_prices']" position="after">
+            <t t-set="rs_component" t-value="line._rs_is_set_component()"/>
+            <t t-if="rs_component">
+                <t t-set="padding_style"
+                   t-value="'padding-left:' + str(((line_padding or 0) + min(line._rs_set_level() or 1, 4)) * 8) + 'px'"/>
+            </t>
+        </xpath>
+
+        <!-- INSIDE the row: the row's own t-if has already been evaluated, so
+             the line is rendered and only its price cells go quiet. -->
+        <xpath expr="//t[@name='account_invoice_line_accountable']" position="before">
+            <t t-if="rs_component">
+                <t t-set="hide_prices" t-value="True"/>
+            </t>
+        </xpath>
+
+        <!-- Discount is the unguarded cell here (RS-13). -->
+        <xpath expr="//td[@name='td_discount']/span" position="attributes">
+            <attribute name="t-if">not rs_component</attribute>
+        </xpath>
+
+    </template>
+
+</odoo>

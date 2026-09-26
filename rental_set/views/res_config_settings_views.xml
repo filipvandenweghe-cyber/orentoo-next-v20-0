@@ -7,6 +7,13 @@
         <field name="inherit_id" ref="sale_renting.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//app[@name='sale_renting']" position="inside">
+                <block title="Rental Sets">
+                    <setting
+                        string="Show set contents on customer documents"
+                        help="Allow rental orders to print the contents of a rental set on the quotation, order confirmation, portal and invoice — indented under the set line and without prices. Off by default: only the set line is shown, carrying the whole price. Each order then decides for itself ('Show Set Contents').">
+                        <field name="rental_set_allow_detail"/>
+                    </setting>
+                </block>
                 <block title="Availability">
                     <setting
                         string="Show stock &amp; locations in availability pop-up"

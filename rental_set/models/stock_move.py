@@ -31,10 +31,6 @@ class StockMove(models.Model):
         string='Set Components Folded',
         default=False,
     )
-    rental_set_indent_label = fields.Char(
-        string='Set Indent',
-        compute='_compute_rental_set_indent_label',
-    )
 
     @api.depends('sale_line_id.is_set', 'sale_line_id.is_set_component',
                  'sale_line_id.set_parent_line_id', 'sale_line_id.set_level')
@@ -66,24 +62,6 @@ class StockMove(models.Model):
                 move.rental_set_parent_move_id = parent_move
             else:
                 move.rental_set_parent_move_id = False
-
-    @api.depends('rental_set_is_set', 'rental_set_is_component',
-                 'rental_set_level')
-    def _compute_rental_set_indent_label(self):
-        """Compute indent label for component rows, matching the sale order
-        visual style (└─, └─▶, etc.)."""
-        for move in self:
-            if not move.rental_set_is_set and not move.rental_set_is_component:
-                move.rental_set_indent_label = ''
-            elif move.rental_set_is_set and not move.rental_set_is_component:
-                move.rental_set_indent_label = '\u25b6'
-            else:
-                indent = '\u00a0\u00a0' * max(move.rental_set_level - 1, 0)
-                connector = '\u2514\u2500'
-                if move.rental_set_is_set:
-                    move.rental_set_indent_label = f'{indent}{connector}\u25b6'
-                else:
-                    move.rental_set_indent_label = f'{indent}{connector}'
 
     def _compute_forecast_information(self):
         """Fix forecast badge for done moves.
