@@ -104,6 +104,22 @@ class TestRentalSetCommon(TransactionCase):
             'property_product_pricelist': cls.pricelist.id,
         })
 
+        # Same reason as the discount-free pricelist above: when
+        # rental_coefficient_dynamic_pricing is installed, every rental price
+        # is multiplied by the coefficient of the company's *standard*
+        # coefficient table (the fallback in
+        # rental.pricing.service._get_applicable_coefficient_table), which in
+        # the demo data is 2.3659 for a one-day rental — so each absolute
+        # price asserted below would depend on that demo record.  Clearing the
+        # flag makes the engine fall back to the plain duration coefficient
+        # (1 for the one-day rentals these tests create).  Soft check: the
+        # add-on is not a dependency of rental_set.
+        if 'rental.coefficient.table' in cls.env:
+            cls.env['rental.coefficient.table'].search([
+                ('is_standard', '=', True),
+                ('company_id', '=', cls.env.company.id),
+            ]).is_standard = False
+
 
 class TestSetExpansion(TestRentalSetCommon):
     """Test 1-4: set expansion, nesting, quantity scaling."""
