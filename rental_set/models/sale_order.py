@@ -1,4 +1,5 @@
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 
 class SaleOrder(models.Model):
@@ -14,6 +15,82 @@ class SaleOrder(models.Model):
              "The option's end date is the quotation Expiration "
              "(validity_date).",
     )
+
+    # RS-02: the per-deal decision.  Mirrors the on-option pattern: the company
+    # flag gates the capability, the order opts in.
+    rental_set_show_detail = fields.Boolean(
+        string='Show Set Contents',
+        copy=True,
+        help="Print the contents of each rental set on this order's customer "
+             "documents (quotation, order confirmation, portal, invoice): the "
+             "components are listed under their set, indented and WITHOUT "
+             "prices — the set line carries the price.  Components whose "
+             "'Visible' toggle is off stay hidden.  Locked once the order is "
+             "confirmed, so the invoice always matches the accepted offer.",
+    )
+    # RS-01/RS-02: read-only mirror of the company flag, so the view can hide
+    # both the order field and the components' 'Visible' column when the
+    # capability is off (a list column inside the order form can only test
+    # fields of the order, via parent.*).
+    rental_set_detail_allowed = fields.Boolean(
+        string='Set Contents Allowed',
+        related='company_id.rental_set_allow_detail',
+        readonly=True,
+    )
+
+    # -- RS-02a: frozen at confirmation -------------------------------------
+
+    def write(self, vals):
+        """Refuse to change ``rental_set_show_detail`` after confirmation.
+
+        The confirmed order is the agreement: what the client accepted must be
+        what the client is invoiced (RS-24).  A ``readonly`` in the view is not
+        enforcement, so the rule lives here too — for every user, with no
+        manager exception (RS-61).  Resetting the order to draft makes it
+        editable again.
+
+        Deliberately NOT exempting ``env.su``: unlike
+        ``_check_set_edit_permission`` — which answers *who may change the
+        composition* — this is immutability, not a permission, so a sudo or
+        server-action write must not slip past it either.  Duplicating an order
+        is unaffected (the copy starts as a draft).
+        """
+        if 'rental_set_show_detail' in vals:
+            locked = self.filtered(
+                lambda o: o.state not in ('draft', 'sent')
+                and o.rental_set_show_detail != vals['rental_set_show_detail']
+            )
+            if locked:
+                raise UserError(_(
+                    "The rental set contents shown to the customer cannot be "
+                    "changed after the order is confirmed (%(orders)s).  The "
+                    "confirmed order is what the customer accepted, and the "
+                    "invoice must match it.  Reset the order to draft, or "
+                    "create a new one, if the offer really must change.",
+                    orders=', '.join(locked.mapped('name')),
+                ))
+        return super().write(vals)
+
+    # -- RS-04/RS-05: one definition of "shown to the customer" -------------
+
+    def _rental_set_shows_line(self, line):
+        """Whether ``line`` appears on THIS order's customer documents.
+
+        Three tiers (RS-01…RS-05):
+
+        * a line that is not a set component is always shown;
+        * the company must allow set detail at all (RS-01) and this order must
+          opt in (RS-02) — otherwise no component is ever shown, which is the
+          behaviour shipped before this feature (RS-04);
+        * within that, ``visible_to_customer`` is an EXCEPTION: untick it to
+          keep one component off the document (RS-05).
+        """
+        self.ensure_one()
+        if not line.is_set_component:
+            return True
+        if not (self.rental_set_detail_allowed and self.rental_set_show_detail):
+            return False
+        return line.visible_to_customer
 
     @api.depends('partner_id', 'rental_start_date', 'rental_return_date')
     @api.depends_context('rental_avail_order_label', 'sale_show_partner_name')
@@ -177,28 +254,27 @@ class SaleOrder(models.Model):
         return new_order
 
     def _get_order_lines_to_report(self):
-        """Exclude hidden Rental Set component lines from customer-facing
-        documents (quotation PDF, sales order PDF, portal).
+        """Keep only the component lines this order shows to the customer
+        (RS-04/RS-05).  Used by the quotation PDF, the order PDF **and** the
+        portal — both templates resolve their rows through this hook.
 
-        Only lines where visible_to_customer=True (or non-component lines)
-        are shown.  The parent set line carries the customer-facing
-        description and price.
+        The set line always stays: it carries the customer-facing description
+        and the whole price.
         """
         lines = super()._get_order_lines_to_report()
-        return lines.filtered(
-            lambda l: not l.is_set_component or l.visible_to_customer
-        )
+        return lines.filtered(lambda l: self._rental_set_shows_line(l))
 
     def _get_invoiceable_lines(self, final=False):
-        """Exclude hidden Rental Set components from invoice creation.
+        """RS-20: the invoice matches the offer.
 
-        Components with visible_to_customer=False should never appear on
-        customer invoices.  The parent set line is the only invoiceable line.
+        A component is invoiceable exactly when it would be printed on this
+        order's documents, so a client who was offered the contents is invoiced
+        the contents.  Invoiced components carry their quantity and a 0.00
+        price (RS-21) — the set line carries the amount — so no component ever
+        moves money.
         """
         lines = super()._get_invoiceable_lines(final=final)
-        return lines.filtered(
-            lambda l: not l.is_set_component or l.visible_to_customer
-        )
+        return lines.filtered(lambda l: self._rental_set_shows_line(l))
 
     def _get_action_add_from_catalog_extra_context(self):
         """Expose this order's warehouse & company to the product catalog so the

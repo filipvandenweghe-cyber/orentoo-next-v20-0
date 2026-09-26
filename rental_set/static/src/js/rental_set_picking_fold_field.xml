@@ -1,39 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates>
     <!--
-        rental_set.PickingFoldField
-        ───────────────────────────
-        Chevron + indent column for stock.move lines on the picking form.
-        Mirrors the sale order's rental_set.FoldField exactly.
+        rental_set.PickingFoldField  —  RS-42 / RS-47
+        ────────────────────────────────────────────
+        Set hierarchy gutter for the stock.move lines on the picking form.
+        Mirrors rental_set.FoldField: one caret, only on a row that has
+        components, no box-drawing characters.  Purely cosmetic — the grouping
+        key, the "[Set] " prefix and the zero-demand header move keep the
+        semantics fixed by docs/rental_scanning_requirements.md.
     -->
     <t t-name="rental_set.PickingFoldField">
-        <t t-if="this.isSetParent and this.isSetComponent">
-            <!-- Nested set: indent prefix + chevron button -->
-            <span class="text-muted me-1 small" t-out="this.indentLabel"/>
-            <button type="button"
-                    class="btn btn-link p-0 border-0 align-baseline"
-                    t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
-                    t-on-click.stop.prevent="this.onToggle">
-                <i class="oi oi-fw"
-                   t-att-class="this.isFolded ? 'text-muted' : 'text-primary'"
-                   t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
-            </button>
-        </t>
-        <t t-elif="this.isSetParent">
-            <!-- Top-level set parent: chevron only -->
-            <button type="button"
-                    class="btn btn-link p-0 border-0 align-baseline"
-                    t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
-                    t-on-click.stop.prevent="this.onToggle">
-                <i class="oi oi-fw"
-                   t-att-class="this.isFolded ? 'text-muted' : 'text-primary'"
-                   t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
-            </button>
-        </t>
-        <t t-elif="this.isSetComponent">
-            <!-- Leaf component: indent label, not clickable -->
-            <span class="text-muted small" t-out="this.indentLabel"/>
-        </t>
-        <!-- Normal move: render nothing -->
+        <button t-if="this.hasChildren"
+                type="button"
+                class="btn o_rental_set_fold border-0 p-0"
+                t-att-title="this.toggleTitle"
+                t-on-click.stop.prevent="this.onToggle">
+            <i class="oi oi-fw"
+               t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
+        </button>
     </t>
 </templates>

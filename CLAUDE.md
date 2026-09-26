@@ -101,6 +101,39 @@ full rationale per feature. Read this first.
 - It is **client-side only and runs on drop**: existing bad sequences in the DB are repaired
   the next time the user drags *anything* in that order and saves.
 
+### Set customer visibility (rental_set) — company allows / order decides / line excepts
+- Three tiers, mirroring this module's own *on option* pattern: company
+  `rental_set_allow_detail` (default **off** → byte-identical to the old behaviour) gates the
+  capability; `sale.order.rental_set_show_detail` (default off) is the per-deal opt-in;
+  `visible_to_customer` on the component is the **exception** (untick to hide one), not the
+  thing you must discover first. Stored on the order, so changing the company setting can
+  never alter a quotation already sent.
+- **Frozen at confirmation** (`state in ('draft','sent')` only, `readonly` + a `write()`
+  guard, no manager exception): the confirmed order *is* the agreement, so offer and invoice
+  cannot diverge. Orders confirmed before the feature ships therefore never show contents.
+  It also **never defaults from the partner** — each quotation states its own answer.
+- **Set contents have never been shown** to customers: the field's `default=True` is dead —
+  `_expand_set_children()` *and* the Add Component wizard both write `False`. v19 and v20
+  are identical here. Those two overrides go away; the gating moves to the flags.
+- **The invoice matches the offer**: the order's decision drives `_get_invoiceable_lines`,
+  not just printing, so shown components are invoiced as **0.00** lines. Totals, taxes and
+  the GL are unchanged (accepted cost: 0.00 lines appear in product-level sales analysis).
+- **Component prices are never printed** — empty cells, never `0.00`; quantity + UoM stay.
+  Indentation is `set_level * 8px` *added to* the native `line_padding`, never replacing it.
+- **Trap**: v20's native `collapse_prices` cannot express this. On
+  `account.report_invoice_document` the guard is `t-if="not hide_details and not hide_prices"`,
+  so `collapse_prices` on a line **drops the whole line**; and `line_padding` there comes from
+  section context, not from `parent_id`. Hence our own `t-inherit`. Native
+  `parent_id`/`collapse_prices`/`collapse_composition` duplicate `set_parent_line_id`/
+  `set_components_folded` — consolidating them is a separate future refactor, not a cleanup.
+- The **delivery slip is never gated** (it lists what is in the box;
+  `_get_set_grouped_moves()` ignores `visible_to_customer` on purpose).
+- Hierarchy is drawn with **layout, not characters**: `set_indent_label` (`└─`, `▶`) and the
+  dead `.o_rental_set_indent` / `.o_rental_set_fold_btn` CSS are removed; one caret per row
+  that has children (`arrow_right`/`arrow_drop_down`), depth indent on the product cell via
+  `getCellClass`, section-style tint/weight ladder, count pill on a collapsed set.
+- Docs: `docs/rental_set_requirements.md` (RS-01…RS-61).
+
 ### Return (receipt) demand (sale_flow) — "Option B"
 - **Receipt = what has gone OUT to the customer** = Σ of DONE outbound moves that reached
   the customer/rental location. "Until it is out, the client is not expected to return it."
@@ -268,6 +301,7 @@ or re-target the `sale_flow` "return of the delivery" handling accordingly.
 
 ## Requirement docs
 - `docs/rental_availability_requirements.{md,docx}`
+- `docs/rental_set_requirements.md`
 - `docs/sale_flow_return_demand_requirements.{md,docx}`
 - `docs/rental_serial_log_requirements.{md,docx}`
 - `docs/rental_scanning_requirements.{md,docx}`

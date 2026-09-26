@@ -1,19 +1,21 @@
 /**
  * rental_set_fold_field.js
  *
- * Custom field widget for `set_components_folded`.
- * Renders a single interactive column that serves two roles:
+ * Custom field widget for `set_components_folded` — the set hierarchy gutter.
  *
- *   • Set parent row  → clickable chevron (▼ / ▶) that toggles
- *     `set_components_folded` on the record, causing the renderer
- *     to hide / show descendant component rows.
+ *   • Row WITH components → one caret button (arrow_drop_down open /
+ *     arrow_right folded) that toggles `set_components_folded`, so the
+ *     renderer hides / shows the descendant rows.  While folded it also
+ *     shows the component count, so a collapsed set never hides rows
+ *     silently (RS-45).
  *
- *   • Component row   → read-only indent label (└─, └─▶ …) that
- *     visualises the nesting depth without being interactive.
+ *   • Every other row     → empty cell.
  *
- *   • Normal row      → empty cell (no column space wasted).
+ * Nesting depth is NOT drawn here: the renderer indents the product cell
+ * per level (RS-40).  No box-drawing characters are used (RS-41).
  */
 import { Component, useProps } from "@odoo/owl";
+import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
@@ -26,21 +28,28 @@ export class RentalSetFoldField extends Component {
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    get isSetParent() {
-        return !!this.props.record.data.is_set;
+    /**
+     * RS-42: a caret is drawn only where there is something to fold.  A set
+     * line whose components have all been deleted gets no marker.
+     */
+    get hasChildren() {
+        return !!this.props.record.data.is_set && this.childCount > 0;
     }
 
-    get isSetComponent() {
-        return !!this.props.record.data.is_set_component;
+    get childCount() {
+        return this.props.record.data.set_child_count || 0;
     }
 
     get isFolded() {
         return !!this.props.record.data.set_components_folded;
     }
 
-    /** Unicode box-drawing prefix computed server-side. */
-    get indentLabel() {
-        return this.props.record.data.set_indent_label || "";
+    get toggleTitle() {
+        return this.isFolded ? _t("Show components") : _t("Hide components");
+    }
+
+    get hiddenTitle() {
+        return _t("%s components hidden", this.childCount);
     }
 
     // ── Interaction ────────────────────────────────────────────────────────

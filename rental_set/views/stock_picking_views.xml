@@ -48,7 +48,6 @@
                 <field name="rental_set_parent_move_id" column_invisible="True"/>
                 <field name="rental_set_level" column_invisible="True"/>
                 <field name="rental_set_folded" column_invisible="True"/>
-                <field name="rental_set_indent_label" column_invisible="True"/>
                 <field name="rental_set_folded"
                        widget="rental_set_picking_fold"
                        string=" "

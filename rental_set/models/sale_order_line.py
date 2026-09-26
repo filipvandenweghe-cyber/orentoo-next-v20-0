@@ -78,11 +78,14 @@ class SaleOrderLine(models.Model):
         ),
     )
 
-    # Visual hierarchy indicator shown in the sale order internal list view.
-    set_indent_label = fields.Char(
-        string=' ',
-        compute='_compute_set_indent_label',
-        help='Box-drawing prefix that visualises set nesting depth in the list.',
+    # RS-41: the box-drawing indent label is gone.  Hierarchy is drawn with
+    # layout (indentation + one caret + a tint ladder), never with characters.
+    # RS-42/RS-45: the list needs to know whether a row HAS children (only then
+    # is a caret drawn) and how many, to state what a collapsed set hides.
+    set_child_count = fields.Integer(
+        string='Components',
+        compute='_compute_set_child_count',
+        help='Number of direct component lines of this Rental Set line.',
     )
 
     # Stored client-side collapse state.
@@ -155,19 +158,10 @@ class SaleOrderLine(models.Model):
             else:
                 line.set_allocated_price = line.price_unit * line.product_uom_qty
 
-    @api.depends('is_set', 'is_set_component', 'set_level')
-    def _compute_set_indent_label(self):
+    @api.depends('set_child_line_ids')
+    def _compute_set_child_count(self):
         for line in self:
-            if not line.is_set and not line.is_set_component:
-                line.set_indent_label = ''
-            elif line.is_set and not line.is_set_component:
-                line.set_indent_label = '\u25b6'
-            else:
-                indent = '\u00a0\u00a0' * max(line.set_level - 1, 0)
-                connector = '\u2514\u2500'
-                line.set_indent_label = (
-                    f'{indent}{connector}\u25b6' if line.is_set else f'{indent}{connector}'
-                )
+            line.set_child_count = len(line.set_child_line_ids)
 
     # -- Aggregate order demand for stock indicator (RS12) -------------------------
 
@@ -545,6 +539,17 @@ class SaleOrderLine(models.Model):
             self._rental_custody_out_qty() - self._rental_custody_back_qty(),
             0.0,
         )
+
+    def _rs_report_indent_level(self):
+        """Indentation depth for this line on a customer document (RS-11).
+
+        ``set_level`` capped at 4 so a deeply nested set cannot eat the
+        description column; 0 for anything that is not a component.
+        """
+        self.ensure_one()
+        if not self.is_set_component:
+            return 0
+        return min(self.set_level or 1, 4)
 
     def _rental_scrapped_qty(self):
         """Quantity of this line's units scrapped FROM the rental
@@ -1289,7 +1294,12 @@ class SaleOrderLine(models.Model):
                 'sequence': self.sequence,
                 'is_set_component': True,
                 'is_set': is_nested_set,
-                'visible_to_customer': False,
+                # RS-03: no longer forced hidden here.  Visibility is gated
+                # by the company flag + the order's own decision
+                # (sale.order._rental_set_shows_line); this per-line flag is
+                # only the EXCEPTION a salesperson unticks to hide one
+                # component on an order that does show its contents (RS-05).
+                'visible_to_customer': True,
                 'set_parent_line_id': self.id,
                 'set_level': depth + 1,
                 'set_component_qty': component.quantity,
@@ -1312,7 +1322,8 @@ class SaleOrderLine(models.Model):
         Only the parent set line is shown.  This method is defined by
         website_sale and only called when that module is installed.
         """
-        if self.is_set_component and not self.visible_to_customer:
+        # RS-07: the cart follows the same three-tier rule as the documents.
+        if not self.order_id._rental_set_shows_line(self):
             return False
         if hasattr(super(), '_show_in_cart'):
             return super()._show_in_cart()

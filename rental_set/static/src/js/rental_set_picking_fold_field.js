@@ -11,6 +11,7 @@
  *   • Normal move      → empty cell
  */
 import { Component, useProps } from "@odoo/owl";
+import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
@@ -21,20 +22,21 @@ export class RentalSetPickingFoldField extends Component {
         ...standardFieldProps,
     });
 
-    get isSetParent() {
+    /**
+     * RS-42/RS-47: one caret, and only where there is something to fold.
+     * ``rental_set_is_set`` is already computed as "is a set AND has
+     * components", so it doubles as the has-children test here.
+     */
+    get hasChildren() {
         return !!this.props.record.data.rental_set_is_set;
-    }
-
-    get isSetComponent() {
-        return !!this.props.record.data.rental_set_is_component;
     }
 
     get isFolded() {
         return !!this.props.record.data.rental_set_folded;
     }
 
-    get indentLabel() {
-        return this.props.record.data.rental_set_indent_label || "";
+    get toggleTitle() {
+        return this.isFolded ? _t("Show components") : _t("Hide components");
     }
 
     async onToggle(ev) {

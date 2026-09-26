@@ -51,7 +51,10 @@ class RentalSetAddComponentWizard(models.TransientModel):
     )
     visible_to_customer = fields.Boolean(
         string='Visible to Customer',
-        default=False,
+        # RS-03: components are visible unless explicitly excluded; whether
+        # ANY component reaches the customer is decided by the company flag
+        # plus the order's 'Show Set Contents' (RS-01/RS-02).
+        default=True,
         help=(
             'When checked, this component line will appear on customer-facing '
             'documents (quotation, order confirmation, invoice).'

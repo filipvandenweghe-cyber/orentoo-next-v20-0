@@ -1,59 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates>
     <!--
-        rental_set.FoldField
-        ────────────────────
-        Single column that unifies hierarchy display and collapse toggle.
+        rental_set.FoldField  —  RS-42 / RS-45
+        ──────────────────────────────────────
+        The set hierarchy gutter.  One disclosure control per row, and only on a
+        row that HAS children:
 
-        Set parent (is_set = True)
-          → chevron button (▼ expanded / ▶ folded), clickable unless readonly
+          row with components → caret button (arrow_drop_down open /
+                                arrow_right folded), plus a muted count while
+                                folded so nothing is hidden without a trace
+          every other row     → empty cell
 
-        Set component (is_set_component = True, is_set = False)
-          → indent label string (└─, ..└─, etc.) — read only
-
-        Nested set (is_set = True AND is_set_component = True)
-          → indent label + chevron button
-
-        Normal line
-          → empty cell
+        Depth is NOT drawn here: the product cell is indented per level by
+        SaleOrderLineListRenderer.getCellClass (RS-40).  No box-drawing
+        characters anywhere (RS-41).
     -->
     <t t-name="rental_set.FoldField">
-        <t t-if="this.isSetParent and this.isSetComponent">
-            <!-- Nested set: indent prefix + chevron button -->
-            <span class="text-muted me-1 small" t-out="this.indentLabel"/>
+        <t t-if="this.hasChildren">
             <!--
-                Always render a real <button> (never a plain <i>).
-                Odoo's CSS hides pointer-events on .form-check elements inside
-                non-selected rows, but our <button> bypasses that rule.
-                The .stop.prevent modifiers + special_click flag in onToggle
-                prevent onCellClicked from firing a second enterEditMode.
+                A real <button>: Odoo's CSS kills pointer-events on form-check
+                elements inside non-selected rows, which a plain <i> would
+                inherit.  The .stop.prevent modifiers plus the special_click
+                flag in onToggle keep onCellClicked from entering edit mode.
             -->
-            <button
-                type="button"
-                class="btn btn-link p-0 border-0 align-baseline"
-                t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
-                t-on-click.stop.prevent="this.onToggle">
-                <i
-                    class="oi oi-fw"
-                    t-att-class="this.isFolded ? 'text-muted' : 'text-primary'"
-                    t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
-            </button>
-        </t>
-        <t t-elif="this.isSetParent">
-            <!-- Top-level set parent: chevron only -->
             <button type="button"
-                    class="btn btn-link p-0 border-0 align-baseline"
-                    t-att-title="this.isFolded ? 'Expand components' : 'Collapse components'"
+                    class="btn o_rental_set_fold border-0 p-0"
+                    t-att-title="this.toggleTitle"
                     t-on-click.stop.prevent="this.onToggle">
                 <i class="oi oi-fw"
-                   t-att-class="this.isFolded ? 'text-muted' : 'text-primary'"
                    t-attf-data-icon="{{ this.isFolded ? 'arrow_right' : 'arrow_drop_down' }}"/>
             </button>
+            <span t-if="this.isFolded"
+                  class="o_rental_set_count"
+                  t-att-title="this.hiddenTitle"
+                  t-out="this.childCount"/>
         </t>
-        <t t-elif="this.isSetComponent">
-            <!-- Leaf component: indent label, not clickable -->
-            <span class="text-muted small" t-out="this.indentLabel"/>
-        </t>
-        <!-- Normal line: render nothing -->
     </t>
 </templates>

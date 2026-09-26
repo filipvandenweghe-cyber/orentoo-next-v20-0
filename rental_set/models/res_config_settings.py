@@ -9,6 +9,11 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         string="Show physical stock & locations in availability pop-up",
     )
+    rental_set_allow_detail = fields.Boolean(
+        related='company_id.rental_set_allow_detail',
+        readonly=False,
+        string="Allow showing rental set contents on customer documents",
+    )
     rental_flag_options = fields.Boolean(
         related='company_id.rental_flag_options',
         readonly=False,

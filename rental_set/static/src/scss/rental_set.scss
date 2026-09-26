@@ -1,23 +1,64 @@
-// ── Rental Set collapse / expand ──────────────────────────────────────────────
+// ── Rental Set hierarchy in the order / picking line lists ───────────────────
+//
+// Hierarchy is drawn with layout only — indentation, one caret, and the tint +
+// weight ladder Odoo 20 itself uses for sections in this very list.  No
+// box-drawing characters, no colour to convey structure (RS-40…RS-45).
+
+$o-rental-set-indent-step: 1.125rem;
+$o-rental-set-max-level: 4;
 
 // Applied by the JS renderer to rows that belong to a collapsed set parent.
 .o_rental_set_hidden {
     display: none !important;
 }
 
-// Tighten the fold toggle button so it fits in the narrow column cleanly.
-.o_rental_set_fold_btn {
-    line-height: 1;
-
-    .fa {
-        font-size: 0.75rem;
+// Depth of a component row, put on the product cell by
+// SaleOrderLineListRenderer.getCellClass.  Padding (not margin) so the row's
+// hover and selection backgrounds still span the whole cell.
+@for $i from 1 through $o-rental-set-max-level {
+    .o_rental_set_indent_#{$i} {
+        padding-left: $i * $o-rental-set-indent-step !important;
     }
 }
 
-// Indent label in component rows: monospace so box-drawing chars align.
-.o_rental_set_indent {
-    font-family: monospace;
-    font-size: 0.85rem;
-    white-space: pre;
+// The set line owns the rows below it.  Tinting goes through Bootstrap's own
+// table variables so hover, striping and keyboard focus stay coherent — the
+// same mechanism account/sale use for o_is_line_section / _subsection.
+.o_rental_set_parent {
+    --table-bg-type: #{rgba($body-emphasis-color, .08)};
+    --table-hover-bg: #{rgba($body-emphasis-color, .1)};
+    --table-striped-bg: var(--table-bg-type);
+    --ListRenderer-data-row-focused-striped-bg: var(--table-bg-type);
+
+    font-weight: $font-weight-bolder;
 }
 
+// A nested set is one rung down: lighter tint, lighter weight.
+.o_rental_set_parent_nested {
+    --table-bg-type: #{rgba($body-emphasis-color, .03)};
+    --table-hover-bg: #{rgba($body-emphasis-color, .05)};
+    --table-striped-bg: var(--table-bg-type);
+    --ListRenderer-data-row-focused-striped-bg: var(--table-bg-type);
+
+    font-weight: $font-weight-bold;
+}
+
+// The gutter: one caret per row that has children.  Muted by default — a
+// disclosure control is navigation, not information.
+.o_rental_set_fold {
+    line-height: 1;
+    color: $o-gray-600;
+
+    &:hover,
+    &:focus {
+        color: $o-brand-primary;
+    }
+}
+
+// Component count shown while a set is folded, so nothing hides silently.
+.o_rental_set_count {
+    vertical-align: text-top;
+    color: $text-muted;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-normal;
+}
