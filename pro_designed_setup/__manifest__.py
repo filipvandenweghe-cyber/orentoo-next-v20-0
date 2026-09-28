@@ -1,6 +1,6 @@
 {
     'name': 'Pro-Designed.com Company Setup',
-    'version': '20.0.1.1.0',
+    'version': '20.0.1.1.1',
     'category': 'Accounting/Localizations',
     'author': 'Pro-Designed.com',
     'summary': 'Sets up the Pro-Designed.com Belgian company (EUR, Belgian PCMN chart, VAT, fiscal positions).',
@@ -26,13 +26,6 @@ once this module is committed and installed on the branch.
     'demo': [
         'demo/restore_chart_marker.xml',
     ],
-    # Neutralises the click-blocking wrapper Odoo.sh puts around its trial
-    # notice; see the file header. Temporary, remove when the platform is fixed.
-    'assets': {
-        'web.assets_backend': [
-            'pro_designed_setup/static/src/scss/odoosh_trial_overlay.scss',
-        ],
-    },
     'license': 'LGPL-3',
     'post_init_hook': 'post_init_hook',
     'installable': True,

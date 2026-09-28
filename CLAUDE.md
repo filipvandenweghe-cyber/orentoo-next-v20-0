@@ -305,7 +305,7 @@ or re-target the `sale_flow` "return of the delivery" handling accordingly.
   whose wrapper (`div.d-flex.align-items-center.justify-content-center`, `position:absolute`,
   `z-index:1100`) fills the viewport and keeps `pointer-events:auto` — every click in the web
   client is swallowed even though the date is still weeks away. Nothing in odoo/enterprise
-  renders that markup. `pro_designed_setup/static/src/scss/odoosh_trial_overlay.scss` makes
+  renders that markup. `rental_set/static/src/scss/odoosh_trial_overlay.scss` makes
   the wrapper click-through (children keep `pointer-events:auto`, so the notice stays visible
   and clickable). **Delete that file + its manifest asset entry once the platform is fixed.**
 
