@@ -299,6 +299,16 @@ in Odoo 20 gets an empty return picking (rental moves are stripped by design). D
 whether the rental round-trip return picking is the only supported return path, and drop
 or re-target the `sale_flow` "return of the delivery" handling accordingly.
 
+## Platform workarounds (temporary)
+- **Odoo.sh trial overlay blocks the backend.** On the production build, Odoo.sh registers
+  its "trial project … will be automatically deleted" notice as a `main_components` entry
+  whose wrapper (`div.d-flex.align-items-center.justify-content-center`, `position:absolute`,
+  `z-index:1100`) fills the viewport and keeps `pointer-events:auto` — every click in the web
+  client is swallowed even though the date is still weeks away. Nothing in odoo/enterprise
+  renders that markup. `pro_designed_setup/static/src/scss/odoosh_trial_overlay.scss` makes
+  the wrapper click-through (children keep `pointer-events:auto`, so the notice stays visible
+  and clickable). **Delete that file + its manifest asset entry once the platform is fixed.**
+
 ## Requirement docs
 - `docs/rental_availability_requirements.{md,docx}`
 - `docs/rental_set_requirements.md`
