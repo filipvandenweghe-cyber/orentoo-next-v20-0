@@ -16,6 +16,12 @@
 // there (.o-overlay-container, .o_notification_manager, .o_dialog_container, …)
 // carries an o-/o_ prefixed class instead and is left untouched.
 //
+// This has nothing to do with rental sets. It lives in rental_set only because
+// that module is installed on every database, including production; the obvious
+// home (pro_designed_setup) is never installed there, and its post_init_hook
+// creates a company and loads a chart of accounts, so installing it just to
+// ship a stylesheet would touch live accounting data.
+//
 // Remove this file once Odoo.sh stops blocking the UI.
 .o-main-components-container > div.d-flex.align-items-center.justify-content-center {
     pointer-events: none;
