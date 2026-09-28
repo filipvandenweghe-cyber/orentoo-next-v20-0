@@ -1,6 +1,6 @@
 {
     'name': 'Rental Sets',
-    'version': '20.0.1.46.0',
+    'version': '20.0.1.47.0',
     'summary': 'Extend products with Rental Set capabilities',
     'description': (
         'Rental Sets are normal Odoo products that can expand into hidden '
@@ -58,9 +58,6 @@
             'rental_set/static/src/js/availability_matrix.js',
             'rental_set/static/src/scss/rental_set.scss',
             'rental_set/static/src/scss/availability_matrix.scss',
-            # Platform workaround, unrelated to rental sets: it lives here only
-            # because this module is installed everywhere. See the file header.
-            'rental_set/static/src/scss/odoosh_trial_overlay.scss',
         ],
     },
 
